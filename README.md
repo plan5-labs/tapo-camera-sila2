@@ -121,3 +121,8 @@ mp4 = c.VideoCaptureController.GetRecording(rec.RecordingId).Video
 - `scripts/probe.py` checks what a camera supports via ONVIF/RTSP (`--move` also moves it).
 - `scripts/smoke_test.py` runs an end-to-end test against a running server (the camera moves;
   presets and recordings it creates are removed again).
+
+## License
+
+MIT License (see [LICENSE](LICENSE)). This project is not affiliated with or endorsed by TP-Link.
+Dependencies are distributed under their own licenses (e.g. sila2: MIT, PyAV: BSD-3-Clause with bundled FFmpeg libraries).

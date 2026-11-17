@@ -3,6 +3,8 @@ name = "tapo-camera-controller"
 version = "0.1.0"
 description = "SiLA 2 server for TP-Link Tapo pan/tilt cameras (ONVIF + RTSP)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Kazunari Kaizu", email = "kwaizu@gmail.com" }
 ]
