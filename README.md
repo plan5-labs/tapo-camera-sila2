@@ -24,6 +24,7 @@ client or agent can understand coordinates, units and limits).
 | TapoCameraController | Reset | Status (0 Not Connected / 1 Idle / 2 Running / 3 Error), DeviceInformation |
 | VideoCaptureController | TakeSnapshot, RecordVideo (observable), GetRecording, ListRecordings, DeleteRecording | – |
 | PanTiltController | MoveAbsolute, MoveRelative, MoveHome, GotoPreset (observable), GetPresets, SavePreset, RemovePreset | CurrentPosition |
+| CameraSettingsController | SetImageSettings, ResetImageSettings, SetMainStreamResolution | ImageSettings, MainStreamResolution, AvailableMainStreamResolutions |
 
 Key behavior:
 
@@ -37,6 +38,12 @@ Key behavior:
 - Snapshots and recordings may run concurrently with each other and with movements;
   only one movement at a time (`MovementInProgress`).
 - Camera limits (C232): at most 8 presets; preset names ≤ 32 bytes UTF-8 without `& < > " '`.
+- **Camera settings** are stored in the camera and affect every client (including the Tapo app).
+  Effective on C232: color saturation, contrast, sharpness (weak), main-stream resolution
+  (2880×1620 / 1920×1080). Not offered because the C232 ignores them over ONVIF: brightness,
+  bit rate, encoding quality. Day/night mode, exposure, white balance and flip are not available
+  via ONVIF. Changing the resolution restarts the streams (~4 s) and is rejected while a
+  snapshot or recording is running.
 
 ## Setup
 
@@ -119,8 +126,8 @@ mp4 = c.VideoCaptureController.GetRecording(rec.RecordingId).Video
 ## Development
 
 - `src/tapo_camera_controller/generated/` is produced by `sila2-codegen` from `features/*.sila.xml`.
-  After editing a feature definition:
-  `uv run sila2-codegen update -d src/tapo_camera_controller features/*.sila.xml`
+  After editing or adding a feature definition run `uv run scripts/codegen.py` (replaces
+  `generated/` and adds implementation stubs for new features; hand-written code is untouched).
 - Device layer: `camera.py` (status, locking, waiting for movements), `onvif.py` (minimal SOAP client),
   `rtsp.py` (PyAV snapshot/recording), `recordings.py` (UUID-addressed storage and retention).
 - `scripts/probe.py` checks what a camera supports via ONVIF/RTSP (`--move` also moves it).

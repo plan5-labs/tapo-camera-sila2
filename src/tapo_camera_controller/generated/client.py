@@ -6,10 +6,12 @@ from typing import Set
 from sila2.client import SilaClient
 from sila2.framework import FullyQualifiedFeatureIdentifier
 
-from . import pantiltcontroller, tapocameracontroller, videocapturecontroller
+from . import camerasettingscontroller, pantiltcontroller, tapocameracontroller, videocapturecontroller
 
 
 class Client(SilaClient):
+
+    CameraSettingsController: camerasettingscontroller.CameraSettingsControllerClient
 
     PanTiltController: pantiltcontroller.PanTiltControllerClient
 
@@ -19,6 +21,7 @@ class Client(SilaClient):
 
     _expected_features: Set[FullyQualifiedFeatureIdentifier] = {
         FullyQualifiedFeatureIdentifier("org.silastandard/core/SiLAService/v1"),
+        FullyQualifiedFeatureIdentifier("org.riken/instruments/CameraSettingsController/v1"),
         FullyQualifiedFeatureIdentifier("org.riken/instruments/PanTiltController/v1"),
         FullyQualifiedFeatureIdentifier("org.riken/instruments/TapoCameraController/v1"),
         FullyQualifiedFeatureIdentifier("org.riken/instruments/VideoCaptureController/v1"),
@@ -26,6 +29,30 @@ class Client(SilaClient):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self._register_defined_execution_error_class(
+            camerasettingscontroller.CameraSettingsControllerFeature.defined_execution_errors[
+                "CameraCommunicationError"
+            ],
+            camerasettingscontroller.CameraCommunicationError,
+        )
+
+        self._register_defined_execution_error_class(
+            camerasettingscontroller.CameraSettingsControllerFeature.defined_execution_errors[
+                "InvalidInstrumentStatus"
+            ],
+            camerasettingscontroller.InvalidInstrumentStatus,
+        )
+
+        self._register_defined_execution_error_class(
+            camerasettingscontroller.CameraSettingsControllerFeature.defined_execution_errors["UnsupportedResolution"],
+            camerasettingscontroller.UnsupportedResolution,
+        )
+
+        self._register_defined_execution_error_class(
+            camerasettingscontroller.CameraSettingsControllerFeature.defined_execution_errors["OperationInProgress"],
+            camerasettingscontroller.OperationInProgress,
+        )
 
         self._register_defined_execution_error_class(
             pantiltcontroller.PanTiltControllerFeature.defined_execution_errors["CameraCommunicationError"],

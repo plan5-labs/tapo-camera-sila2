@@ -162,6 +162,39 @@ def main() -> int:
     check("DeleteRecording", len(vid.ListRecordings().Recordings) == n0)
     expect_error("DeleteRecording(deleted) -> RecordingNotFound", lambda: vid.DeleteRecording(rec.RecordingId), "RecordingNotFound")
 
+    print("== CameraSettingsController ==")
+    cs = client.CameraSettingsController
+    orig_img = cs.ImageSettings.get()
+    orig_res = cs.MainStreamResolution.get()
+    avail = [(r.Width, r.Height) for r in cs.AvailableMainStreamResolutions.get()]
+    check("ImageSettings", 0 <= orig_img.ColorSaturation <= 100, str(orig_img))
+    check("MainStreamResolution / Available", (orig_res.Width, orig_res.Height) in avail, f"{orig_res} in {avail}")
+    try:
+        r = cs.SetImageSettings(0, 60, 40).ImageSettings
+        check("SetImageSettings(0, 60, 40)", (r.ColorSaturation, r.Contrast, r.Sharpness) == (0, 60, 40), str(r))
+        r = cs.ResetImageSettings().ImageSettings
+        check("ResetImageSettings -> 50/50/50", (r.ColorSaturation, r.Contrast, r.Sharpness) == (50, 50, 50), str(r))
+        expect_error("SetImageSettings(101, ...) -> ValidationError", lambda: cs.SetImageSettings(101, 50, 50), None)
+        expect_error("SetMainStreamResolution(1280x720) -> UnsupportedResolution",
+                     lambda: cs.SetMainStreamResolution(1280, 720), "UnsupportedResolution")
+        other = next((wh for wh in avail if wh != (orig_res.Width, orig_res.Height)), None)
+        if other:
+            r = cs.SetMainStreamResolution(*other).Resolution
+            check(f"SetMainStreamResolution{other}", (r.Width, r.Height) == other, str(r))
+            snap = vid.TakeSnapshot("Main")
+            check("Main snapshot uses new resolution", (snap.Width, snap.Height) == other, f"{snap.Width}x{snap.Height}")
+            rec_cmd = vid.RecordVideo("Main", 4.0, False)
+            time.sleep(1.5)
+            expect_error("SetMainStreamResolution during recording -> OperationInProgress",
+                         lambda: cs.SetMainStreamResolution(orig_res.Width, orig_res.Height), "OperationInProgress")
+            rec = wait(rec_cmd, "RecordVideo during settings").Recording
+            check("recording at new resolution", (rec.Width, rec.Height) == other, f"{rec.Width}x{rec.Height}")
+            vid.DeleteRecording(rec.RecordingId)
+    finally:
+        cs.SetImageSettings(orig_img.ColorSaturation, orig_img.Contrast, orig_img.Sharpness)
+        r = cs.SetMainStreamResolution(orig_res.Width, orig_res.Height).Resolution
+        check("settings restored", (r.Width, r.Height) == (orig_res.Width, orig_res.Height), str(r))
+
     wait(ptz.MoveHome(), "MoveHome")
     check("final Status Idle", cam.Status.get() == 1)
 

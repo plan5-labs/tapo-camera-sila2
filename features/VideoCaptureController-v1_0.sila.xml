@@ -11,7 +11,8 @@
     Still snapshots and fixed-duration video recordings from the camera's RTSP streams.
 
     Streams:
-      "Main": full-resolution stream (Tapo C232: 2880 x 1620, H.264, about 2 Mbit/s, about 15 MB per minute).
+      "Main": full-resolution stream (Tapo C232: 2880 x 1620, H.264, about 2 Mbit/s, about 15 MB per minute;
+              can be switched to 1920 x 1080, about 0.8 Mbit/s, with CameraSettingsController).
       "Sub" : low-resolution stream (Tapo C232: 640 x 360, H.264, about 0.23 Mbit/s, about 1.7 MB per minute).
       The actual resolution depends on the camera model and its stream settings.
     Video is stored without re-encoding, so the file size is roughly bit rate x duration.

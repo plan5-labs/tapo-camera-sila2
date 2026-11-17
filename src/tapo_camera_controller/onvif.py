@@ -24,7 +24,10 @@ NS = {
     "tptz": "http://www.onvif.org/ver20/ptz/wsdl",
     "tt": "http://www.onvif.org/ver10/schema",
 }
-_WSSE = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+TIMG = "http://www.onvif.org/ver20/imaging/wsdl"
+for _prefix, _uri in NS.items():  # readable prefixes when serializing elements back (SetVideoEncoderConfiguration)
+    ET.register_namespace(_prefix, _uri)
+_WSSE ="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
 _WSU = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
 _DIGEST = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest"
 _B64 = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary"
@@ -66,6 +69,8 @@ class Profile:
     token: str
     name: str
     has_ptz: bool
+    video_source_token: str = ""
+    encoder_token: str = ""
 
 
 @dataclass
@@ -179,14 +184,84 @@ class OnvifCamera:
     # ----------------------------------------------------------------- media
     def get_profiles(self) -> list[Profile]:
         r = self.call(self._xaddr("Media"), "<trt:GetProfiles/>")
-        return [
-            Profile(
-                token=p.get("token", ""),
-                name=p.findtext("tt:Name", default="", namespaces=NS),
-                has_ptz=p.find("tt:PTZConfiguration", NS) is not None,
+        out = []
+        for p in r.findall("trt:Profiles", NS):
+            enc = p.find("tt:VideoEncoderConfiguration", NS)
+            out.append(
+                Profile(
+                    token=p.get("token", ""),
+                    name=p.findtext("tt:Name", default="", namespaces=NS),
+                    has_ptz=p.find("tt:PTZConfiguration", NS) is not None,
+                    video_source_token=p.findtext(
+                        "tt:VideoSourceConfiguration/tt:SourceToken", default="", namespaces=NS
+                    ),
+                    encoder_token=enc.get("token", "") if enc is not None else "",
+                )
             )
-            for p in r.findall("trt:Profiles", NS)
-        ]
+        return out
+
+    def get_video_encoder_configuration(self, token: str) -> ET.Element:
+        """Return the tt:VideoEncoderConfiguration element (as trt:Configuration)."""
+        body = (
+            "<trt:GetVideoEncoderConfiguration>"
+            f"<trt:ConfigurationToken>{escape(token)}</trt:ConfigurationToken>"
+            "</trt:GetVideoEncoderConfiguration>"
+        )
+        cfg = self.call(self._xaddr("Media"), body).find("trt:Configuration", NS)
+        if cfg is None:
+            raise OnvifError(f"no video encoder configuration {token!r}")
+        return cfg
+
+    def set_video_encoder_configuration(self, cfg: ET.Element) -> None:
+        """Write back a (modified) element returned by get_video_encoder_configuration()."""
+        xml = ET.tostring(cfg, encoding="unicode")  # self-contained: declares its namespaces
+        body = (
+            f"<trt:SetVideoEncoderConfiguration>{xml}"
+            "<trt:ForcePersistence>true</trt:ForcePersistence></trt:SetVideoEncoderConfiguration>"
+        )
+        self.call(self._xaddr("Media"), body)
+
+    def get_encoder_resolutions(self, profile: str) -> list[tuple[int, int]]:
+        body = (
+            "<trt:GetVideoEncoderConfigurationOptions>"
+            f"<trt:ProfileToken>{escape(profile)}</trt:ProfileToken>"
+            "</trt:GetVideoEncoderConfigurationOptions>"
+        )
+        opts = self.call(self._xaddr("Media"), body).find("trt:Options", NS)
+        res: list[tuple[int, int]] = []
+        if opts is not None:
+            for r in opts.iterfind("tt:H264/tt:ResolutionsAvailable", NS):
+                wh = (int(r.findtext("tt:Width", namespaces=NS)), int(r.findtext("tt:Height", namespaces=NS)))
+                if wh not in res:
+                    res.append(wh)
+        return res
+
+    # --------------------------------------------------------------- imaging
+    def get_imaging_settings(self, source: str) -> dict[str, float]:
+        """Return the numeric top-level imaging settings (Brightness, ColorSaturation, ...)."""
+        body = (
+            f'<timg:GetImagingSettings xmlns:timg="{TIMG}">'
+            f"<timg:VideoSourceToken>{escape(source)}</timg:VideoSourceToken></timg:GetImagingSettings>"
+        )
+        s = self.call(self._xaddr("Imaging"), body).find(f"{{{TIMG}}}ImagingSettings")
+        out: dict[str, float] = {}
+        if s is not None:
+            for el in s:
+                try:
+                    out[el.tag.split("}")[1]] = float(el.text or "")
+                except ValueError:
+                    pass
+        return out
+
+    def set_imaging_settings(self, source: str, values: dict[str, float]) -> None:
+        inner = "".join(f"<tt:{k}>{v:g}</tt:{k}>" for k, v in values.items())
+        body = (
+            f'<timg:SetImagingSettings xmlns:timg="{TIMG}">'
+            f"<timg:VideoSourceToken>{escape(source)}</timg:VideoSourceToken>"
+            f"<timg:ImagingSettings>{inner}</timg:ImagingSettings>"
+            "<timg:ForcePersistence>true</timg:ForcePersistence></timg:SetImagingSettings>"
+        )
+        self.call(self._xaddr("Imaging"), body)
 
     def get_stream_uri(self, profile: str) -> str:
         body = (

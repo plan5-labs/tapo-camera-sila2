@@ -13,6 +13,8 @@
       - TapoCameraController (this feature): status, device information, reset.
       - VideoCaptureController: still snapshots and fixed-duration video recordings.
       - PanTiltController: pan/tilt movement and presets (only offered if the camera supports PTZ).
+      - CameraSettingsController: color saturation, contrast, sharpness and main-stream resolution
+        (settings stored in the camera itself).
 
     Status values (see property Status):
       0: Not Connected - the camera could not be reached; use Reset to reconnect.

@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+import "SiLAFramework.proto";
+
+package sila2.org.riken.instruments.camerasettingscontroller.v1;
+
+/* Image adjustment and main-stream resolution of the camera (via ONVIF Imaging / Media). IMPORTANT: these are settings of the camera itself. They are stored in the camera, apply to every client (including the Tapo app live view and other recordings) and remain after the server stops. Image adjustment (verified on Tapo C232): ColorSaturation: 0 = grayscale, 50 = default, 100 = most saturated. Clearly effective. Contrast : 0 to 100, 50 = default. Effective (moderate change). Sharpness : 0 to 100, 50 = default. Weak effect (slightly stronger edges at 100). Not offered: brightness, video bit rate and encoding quality. The Tapo C232 accepts these over ONVIF but they have no effect, so they are deliberately not exposed. Day/night (infrared) mode, exposure, white balance and image flip are not available via ONVIF on the Tapo C232; use the Tapo app for those. Main stream resolution: The "Main" stream of VideoCaptureController can be switched between the resolutions listed in AvailableMainStreamResolutions (Tapo C232: 2880 x 1620 and 1920 x 1080). Lower resolution means smaller recordings (Tapo C232: about 1.7 Mbit/s at 2880 x 1620, about 0.8 Mbit/s at 1920 x 1080). The "Sub" stream is fixed (640 x 360). Changing the resolution restarts the camera's video streams for a few seconds, so it is rejected while a snapshot or recording is in progress (OperationInProgress). */
+service CameraSettingsController {
+  /* Set color saturation, contrast and sharpness (all three at once; read ImageSettings first to keep a value unchanged). Returns the values read back from the camera. The change is visible in new snapshots and recordings within about 2 seconds. */
+  rpc SetImageSettings (sila2.org.riken.instruments.camerasettingscontroller.v1.SetImageSettings_Parameters) returns (sila2.org.riken.instruments.camerasettingscontroller.v1.SetImageSettings_Responses) {}
+  /* Set color saturation, contrast and sharpness back to the default 50. */
+  rpc ResetImageSettings (sila2.org.riken.instruments.camerasettingscontroller.v1.ResetImageSettings_Parameters) returns (sila2.org.riken.instruments.camerasettingscontroller.v1.ResetImageSettings_Responses) {}
+  /* Change the resolution of the "Main" stream to one of AvailableMainStreamResolutions. The command returns after the camera has restarted the stream (about 4 seconds). Rejected with OperationInProgress while a snapshot or recording is running. */
+  rpc SetMainStreamResolution (sila2.org.riken.instruments.camerasettingscontroller.v1.SetMainStreamResolution_Parameters) returns (sila2.org.riken.instruments.camerasettingscontroller.v1.SetMainStreamResolution_Responses) {}
+  /* Current color saturation, contrast and sharpness of the camera. */
+  rpc Get_ImageSettings (sila2.org.riken.instruments.camerasettingscontroller.v1.Get_ImageSettings_Parameters) returns (sila2.org.riken.instruments.camerasettingscontroller.v1.Get_ImageSettings_Responses) {}
+  /* Current resolution of the "Main" stream. */
+  rpc Get_MainStreamResolution (sila2.org.riken.instruments.camerasettingscontroller.v1.Get_MainStreamResolution_Parameters) returns (sila2.org.riken.instruments.camerasettingscontroller.v1.Get_MainStreamResolution_Responses) {}
+  /* Resolutions the "Main" stream supports, as reported by the camera. */
+  rpc Get_AvailableMainStreamResolutions (sila2.org.riken.instruments.camerasettingscontroller.v1.Get_AvailableMainStreamResolutions_Parameters) returns (sila2.org.riken.instruments.camerasettingscontroller.v1.Get_AvailableMainStreamResolutions_Responses) {}
+}
+
+/* Image adjustment level, 0 to 100 (50 = camera default). */
+message DataType_Level {
+  sila2.org.silastandard.Integer Level = 1;  /* Image adjustment level, 0 to 100 (50 = camera default). */
+}
+
+/* Image adjustment values (0 to 100, 50 = default). */
+message DataType_ImageSettings {
+  message ImageSettings_Struct {
+    sila2.org.silastandard.Integer ColorSaturation = 1;  /* 0 = grayscale, 100 = most saturated. */
+    sila2.org.silastandard.Integer Contrast = 2;  /* 0 to 100. */
+    sila2.org.silastandard.Integer Sharpness = 3;  /* 0 to 100. */
+  }
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_ImageSettings.ImageSettings_Struct ImageSettings = 1;  /* Image adjustment values (0 to 100, 50 = default). */
+}
+
+/* A video resolution in pixels. */
+message DataType_Resolution {
+  message Resolution_Struct {
+    sila2.org.silastandard.Integer Width = 1;  /* Width in pixels. */
+    sila2.org.silastandard.Integer Height = 2;  /* Height in pixels. */
+  }
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Resolution.Resolution_Struct Resolution = 1;  /* A video resolution in pixels. */
+}
+
+/* Parameters for SetImageSettings */
+message SetImageSettings_Parameters {
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Level ColorSaturation = 1;  /* 0 (grayscale) to 100; default 50. */
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Level Contrast = 2;  /* 0 to 100; default 50. */
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Level Sharpness = 3;  /* 0 to 100; default 50 (weak effect on Tapo C232). */
+}
+
+/* Responses of SetImageSettings */
+message SetImageSettings_Responses {
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_ImageSettings ImageSettings = 1;  /* Settings read back from the camera after the change. */
+}
+
+/* Parameters for ResetImageSettings */
+message ResetImageSettings_Parameters {
+}
+
+/* Responses of ResetImageSettings */
+message ResetImageSettings_Responses {
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_ImageSettings ImageSettings = 1;  /* Settings read back from the camera after the change. */
+}
+
+/* Parameters for SetMainStreamResolution */
+message SetMainStreamResolution_Parameters {
+  sila2.org.silastandard.Integer Width = 1;  /* Width in pixels (e.g. 2880 or 1920 on Tapo C232). */
+  sila2.org.silastandard.Integer Height = 2;  /* Height in pixels (e.g. 1620 or 1080 on Tapo C232). */
+}
+
+/* Responses of SetMainStreamResolution */
+message SetMainStreamResolution_Responses {
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Resolution Resolution = 1;  /* Resolution read back from the camera after the change. */
+}
+
+/* Parameters for ImageSettings */
+message Get_ImageSettings_Parameters {
+}
+
+/* Responses of ImageSettings */
+message Get_ImageSettings_Responses {
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_ImageSettings ImageSettings = 1;  /* Current color saturation, contrast and sharpness of the camera. */
+}
+
+/* Parameters for MainStreamResolution */
+message Get_MainStreamResolution_Parameters {
+}
+
+/* Responses of MainStreamResolution */
+message Get_MainStreamResolution_Responses {
+  sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Resolution MainStreamResolution = 1;  /* Current resolution of the "Main" stream. */
+}
+
+/* Parameters for AvailableMainStreamResolutions */
+message Get_AvailableMainStreamResolutions_Parameters {
+}
+
+/* Responses of AvailableMainStreamResolutions */
+message Get_AvailableMainStreamResolutions_Responses {
+  repeated sila2.org.riken.instruments.camerasettingscontroller.v1.DataType_Resolution AvailableMainStreamResolutions = 1;  /* Resolutions the "Main" stream supports, as reported by the camera. */
+}

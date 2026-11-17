@@ -18,7 +18,7 @@ from typing import Callable, Iterator
 
 from . import rtsp
 from .credentials import Credentials
-from .onvif import OnvifCamera, OnvifError, Preset, PtzVector
+from .onvif import NS, OnvifCamera, OnvifError, Preset, PtzVector
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,14 @@ class PresetNameError(CameraError):
     pass
 
 
+class BusyError(CameraError):
+    """A snapshot/recording is running, so an exclusive operation cannot start."""
+
+
+class UnsupportedResolutionError(CameraError):
+    pass
+
+
 @dataclass
 class DeviceInfo:
     manufacturer: str = ""
@@ -88,14 +96,18 @@ class TapoCamera:
         self._rtsp_port = rtsp_port
         self.onvif = OnvifCamera(creds.host, creds.user, creds.password, port=onvif_port, timeout=timeout)
 
-        self._lock = threading.Lock()  # protects the fields below
+        self._lock = threading.Condition()  # protects the fields below
         self._status = Status.NotConnected
         self._running = 0
+        self._exclusive = False  # an exclusive operation (stream restart) is in progress
         self._move_lock = threading.Lock()
 
         self.device_info = DeviceInfo()
         self.has_ptz = False
         self._ptz_profile: str | None = None
+        self._main_profile: str | None = None
+        self._main_encoder: str | None = None
+        self._video_source: str | None = None
         self._stream_paths: dict[str, str] = {"Main": "stream1", "Sub": "stream2"}
 
     # ------------------------------------------------------------------ status
@@ -115,12 +127,21 @@ class TapoCamera:
         return self._creds.redact(text)
 
     @contextlib.contextmanager
-    def operation(self, name: str) -> Iterator[None]:
-        """Mark a camera operation as running; map failures to Error status."""
+    def operation(self, name: str, *, exclusive: bool = False) -> Iterator[None]:
+        """Mark a camera operation as running; map failures to Error status.
+
+        An ``exclusive`` operation (e.g. a stream restart) requires that nothing else is
+        running; other operations started meanwhile wait until it has finished.
+        """
         with self._lock:
+            if not self._lock.wait_for(lambda: not self._exclusive, timeout=30):
+                raise BusyError(f"cannot run {name}: a camera setting change is still in progress")
             if self._status in (Status.NotConnected, Status.Error):
                 raise InvalidStatusError(f"cannot run {name}: status is {self._status.name}; use Reset")
+            if exclusive and self._running:
+                raise BusyError(f"cannot run {name}: {self._running} snapshot/recording/movement operation(s) running")
             self._running += 1
+            self._exclusive = exclusive
             self._set_status(Status.Running)
         failed = False
         try:
@@ -136,6 +157,9 @@ class TapoCamera:
         finally:
             with self._lock:
                 self._running -= 1
+                if exclusive:
+                    self._exclusive = False
+                    self._lock.notify_all()
                 if failed:
                     self._set_status(Status.Error)
                 elif self._status == Status.Running and self._running == 0:
@@ -175,6 +199,10 @@ class TapoCamera:
             self._stream_paths["Main"] = paths[profiles[0].token]
         if len(profiles) >= 2 and profiles[1].token in paths:
             self._stream_paths["Sub"] = paths[profiles[1].token]
+        if profiles:
+            self._main_profile = profiles[0].token
+            self._main_encoder = profiles[0].encoder_token or None
+            self._video_source = profiles[0].video_source_token or None
         ptz_profiles = [p.token for p in profiles if p.has_ptz]
         self.has_ptz = "PTZ" in caps and bool(ptz_profiles)
         self._ptz_profile = ptz_profiles[0] if ptz_profiles else None
@@ -327,3 +355,60 @@ class TapoCamera:
         with self.operation("RemovePreset"):
             self._find_preset(token)
             self._onvif(self.onvif.remove_preset, self._profile(), token)
+
+    # ---------------------------------------------------------------- settings
+    IMAGE_KEYS = ("ColorSaturation", "Contrast", "Sharpness")
+
+    def _require(self, value: str | None, what: str) -> str:
+        if not value:
+            raise CommunicationError(f"camera did not report a {what}; use Reset")
+        return value
+
+    def image_settings(self) -> dict[str, int]:
+        src = self._require(self._video_source, "video source")
+        values = self._onvif(self.onvif.get_imaging_settings, src)
+        missing = [k for k in self.IMAGE_KEYS if k not in values]
+        if missing:
+            raise CommunicationError(f"camera does not report {', '.join(missing)}")
+        return {k: int(round(values[k])) for k in self.IMAGE_KEYS}
+
+    def set_image_settings(self, saturation: int, contrast: int, sharpness: int) -> dict[str, int]:
+        src = self._require(self._video_source, "video source")
+        with self.operation("SetImageSettings"):
+            self._onvif(
+                self.onvif.set_imaging_settings,
+                src,
+                {"ColorSaturation": saturation, "Contrast": contrast, "Sharpness": sharpness},
+            )
+            return self.image_settings()
+
+    def main_resolution(self) -> tuple[int, int]:
+        cfg = self._onvif(self.onvif.get_video_encoder_configuration, self._require(self._main_encoder, "main encoder"))
+        return (
+            int(cfg.findtext("tt:Resolution/tt:Width", namespaces=NS)),
+            int(cfg.findtext("tt:Resolution/tt:Height", namespaces=NS)),
+        )
+
+    def main_resolutions(self) -> list[tuple[int, int]]:
+        return self._onvif(self.onvif.get_encoder_resolutions, self._require(self._main_profile, "main profile"))
+
+    def set_main_resolution(self, width: int, height: int, restart_wait: float = 4.0) -> tuple[int, int]:
+        token = self._require(self._main_encoder, "main encoder")
+        available = self.main_resolutions()
+        if (width, height) not in available:
+            raise UnsupportedResolutionError(
+                f"{width}x{height} is not supported; available: " + ", ".join(f"{w}x{h}" for w, h in available)
+            )
+        with self.operation("SetMainStreamResolution", exclusive=True):
+            cfg = self._onvif(self.onvif.get_video_encoder_configuration, token)
+            if (int(cfg.findtext("tt:Resolution/tt:Width", namespaces=NS)),
+                    int(cfg.findtext("tt:Resolution/tt:Height", namespaces=NS))) == (width, height):
+                return (width, height)  # unchanged: no stream restart
+            cfg.find("tt:Resolution/tt:Width", NS).text = str(width)
+            cfg.find("tt:Resolution/tt:Height", NS).text = str(height)
+            self._onvif(self.onvif.set_video_encoder_configuration, cfg)
+            time.sleep(restart_wait)  # the camera restarts its streams
+            result = self.main_resolution()
+        if result != (width, height):
+            raise CommunicationError(f"camera reports {result[0]}x{result[1]} after the change")
+        return result

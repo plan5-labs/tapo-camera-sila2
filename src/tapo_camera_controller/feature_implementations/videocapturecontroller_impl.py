@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 
 from sila2.server import MetadataDict, ObservableCommandInstance
 
-from ..camera import CommunicationError, InvalidStatusError
+from ..camera import BusyError, CommunicationError, InvalidStatusError
 from ..generated.videocapturecontroller import (
     CameraCommunicationError,
     DeleteRecording_Responses,
@@ -36,7 +36,7 @@ def _sila_errors() -> Iterator[None]:
         yield
     except InvalidStatusError as e:
         raise InvalidInstrumentStatus(str(e)) from None
-    except CommunicationError as e:
+    except (CommunicationError, BusyError) as e:
         raise CameraCommunicationError(str(e)) from None
     except RecordingNotFoundError as e:
         raise RecordingNotFound(f"no recording with ID {e.args[0]!r}") from None

@@ -9,9 +9,11 @@ from sila2.server import SilaServer
 
 from .camera import CameraError, Status, TapoCamera
 from .credentials import Credentials
+from .feature_implementations.camerasettingscontroller_impl import CameraSettingsControllerImpl
 from .feature_implementations.pantiltcontroller_impl import PanTiltControllerImpl
 from .feature_implementations.tapocameracontroller_impl import TapoCameraControllerImpl
 from .feature_implementations.videocapturecontroller_impl import VideoCaptureControllerImpl
+from .generated.camerasettingscontroller import CameraSettingsControllerFeature
 from .generated.pantiltcontroller import PanTiltControllerFeature
 from .generated.tapocameracontroller import TapoCameraControllerFeature
 from .generated.videocapturecontroller import VideoCaptureControllerFeature
@@ -33,7 +35,7 @@ class Server(SilaServer):
         if name is None:
             name = "Tapo Camera Controller"
         if description is None:
-            description = "A SiLA Server for TP-Link Tapo network cameras: snapshots, video recording and pan/tilt."
+            description = "A SiLA Server for TP-Link Tapo network cameras: snapshots, video recording, pan/tilt and image settings."
         super().__init__(
             server_name=name,
             server_description=description,
@@ -56,6 +58,9 @@ class Server(SilaServer):
 
         self.videocapturecontroller = VideoCaptureControllerImpl(self)
         self.set_feature_implementation(VideoCaptureControllerFeature, self.videocapturecontroller)
+
+        self.camerasettingscontroller = CameraSettingsControllerImpl(self)
+        self.set_feature_implementation(CameraSettingsControllerFeature, self.camerasettingscontroller)
 
         # auto: offer pan/tilt if the camera reports PTZ (or if it could not be queried at startup)
         offer_ptz = ptz == "on" or (ptz == "auto" and (self.camera.has_ptz or self.camera.status == Status.NotConnected))

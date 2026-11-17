@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Iterator
 from sila2.server import MetadataDict, ObservableCommandInstance
 
 from ..camera import (
+    BusyError,
     CommunicationError,
     InvalidStatusError,
     MovementInProgressError,
@@ -57,7 +58,7 @@ def _sila_errors() -> Iterator[None]:
         raise PresetLimitReached(str(e)) from None
     except PresetNameError as e:
         raise InvalidPresetName(str(e)) from None
-    except CommunicationError as e:
+    except (CommunicationError, BusyError) as e:
         raise CameraCommunicationError(str(e)) from None
 
 
