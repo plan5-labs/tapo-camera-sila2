@@ -136,5 +136,5 @@ mp4 = c.VideoCaptureController.GetRecording(rec.RecordingId).Video
 
 ## License
 
-MIT License (see [LICENSE](LICENSE)). This project is not affiliated with or endorsed by TP-Link.
+MIT License (see [LICENSE](LICENSE)). Copyright (c) 2026 RIKEN. This project is not affiliated with or endorsed by TP-Link.
 Dependencies are distributed under their own licenses (e.g. sila2: MIT, PyAV: BSD-3-Clause with bundled FFmpeg libraries).
