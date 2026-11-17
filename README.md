@@ -1,5 +1,10 @@
 # Tapo Camera Controller (SiLA 2)
 
+> ⚠️ **Disclaimer**: This software is under active development. It comes with
+> **no warranty** and the authors accept **no liability** for any results or
+> damages. Use at your own risk, and verify safety before connecting to real
+> hardware.
+
 A Python SiLA 2 server for TP-Link Tapo network cameras: still snapshots, fixed-duration
 video recording, and pan/tilt with presets.
 
