@@ -1,0 +1,358 @@
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="instruments" FeatureVersion="1.0" MaturityLevel="Draft" Originator="org.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>PanTiltController</Identifier>
+  <DisplayName>Pan Tilt Controller</DisplayName>
+  <Description>Pan/tilt movement and position presets of the camera (via ONVIF PTZ).
+
+    Coordinate system (normalized ONVIF generic space, unitless, range -1.0 to +1.0 on both axes):
+      Origin (Pan 0, Tilt 0): the direction the camera faces after power-up, i.e. the side of the
+        camera body with the logo. MoveHome returns to it.
+      Pan : positive = turn to the LEFT as seen from behind the camera (counter-clockwise viewed from
+            above, for a camera standing on a table). Negative = turn to the right.
+            -1.0 to +1.0 spans the mechanical pan range of 340 degrees (Tapo C232),
+            i.e. about 170 degrees per 1.0: Pan +1.0 is about 170 degrees left, -1.0 about 170 degrees right.
+            Example: to turn about 90 degrees to the left, use MoveRelative with DeltaPan = +0.53.
+      Tilt: positive = UP, negative = DOWN.
+            -1.0 to +1.0 spans the mechanical tilt range of 69 degrees (Tapo C232),
+            i.e. about 35 degrees per 1.0.
+      Note: the product page also states "360 degrees pan / 110 degrees tilt"; those are the visible
+      coverage including the lens field of view, not the movement range.
+      The degree values assume a linear mapping derived from the specification and were only roughly
+      confirmed by eye on a Tapo C232 (pan: Pan -0.5 to +0.5 looked like about 170 to 180 degrees).
+      Treat them as approximations. For a ceiling-mounted camera the directions may be inverted (not verified).
+      Other camera models may have different mechanical ranges.
+
+    Movement behavior (Tapo C232):
+      The camera moves pan first, then tilt. Pan speed is about 0.19 per second (about 32 degrees per
+      second); a full pan sweep from -1.0 to +1.0 takes about 11 seconds, plus up to about 5 seconds of tilt.
+      Movement commands finish only when the camera has stopped, and return the final position.
+      Only one movement can run at a time; a movement command issued while another is running is
+      rejected with MovementInProgress. Snapshots and recordings may run during movements.
+
+    Presets: at most 8 presets can be stored in the camera (Tapo C232). Presets are identified by a
+    token assigned by the camera and have a name chosen by the user. Preset names are unique on this
+    server: saving with an existing name updates that preset.</Description>
+  <Command>
+    <Identifier>MoveAbsolute</Identifier>
+    <DisplayName>Move Absolute</DisplayName>
+    <Description>Move to an absolute pan/tilt position and wait until the camera has stopped.
+      See the feature description for the meaning of the coordinates.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>Pan</Identifier>
+      <DisplayName>Pan</DisplayName>
+      <Description>Target pan, -1.0 (about 170 degrees right) to +1.0 (about 170 degrees left); 0 = power-up front.</Description>
+      <DataType>
+        <DataTypeIdentifier>NormalizedCoordinate</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Parameter>
+      <Identifier>Tilt</Identifier>
+      <DisplayName>Tilt</DisplayName>
+      <Description>Target tilt, -1.0 (lowest) to +1.0 (highest); 0 = power-up tilt. About 35 degrees per 1.0.</Description>
+      <DataType>
+        <DataTypeIdentifier>NormalizedCoordinate</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>Position after the movement.</Description>
+      <DataType>
+        <DataTypeIdentifier>PanTiltPosition</DataTypeIdentifier>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+      <Identifier>MovementInProgress</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>MoveRelative</Identifier>
+    <DisplayName>Move Relative</DisplayName>
+    <Description>Move by the given offsets from the current position and wait until the camera has stopped.
+      If the target lies outside -1.0 to +1.0, the camera stops at the limit (no error);
+      check the returned position.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>DeltaPan</Identifier>
+      <DisplayName>Delta Pan</DisplayName>
+      <Description>Pan offset, -2.0 to +2.0. Positive = left. About 170 degrees per 1.0.</Description>
+      <DataType>
+        <DataTypeIdentifier>NormalizedOffset</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Parameter>
+      <Identifier>DeltaTilt</Identifier>
+      <DisplayName>Delta Tilt</DisplayName>
+      <Description>Tilt offset, -2.0 to +2.0. Positive = up. About 35 degrees per 1.0.</Description>
+      <DataType>
+        <DataTypeIdentifier>NormalizedOffset</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>Position after the movement.</Description>
+      <DataType>
+        <DataTypeIdentifier>PanTiltPosition</DataTypeIdentifier>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+      <Identifier>MovementInProgress</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>MoveHome</Identifier>
+    <DisplayName>Move Home</DisplayName>
+    <Description>Move to Pan 0, Tilt 0 (the power-up front direction) and wait until the camera has stopped.</Description>
+    <Observable>Yes</Observable>
+    <Response>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>Position after the movement.</Description>
+      <DataType>
+        <DataTypeIdentifier>PanTiltPosition</DataTypeIdentifier>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+      <Identifier>MovementInProgress</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>GetPresets</Identifier>
+    <DisplayName>Get Presets</DisplayName>
+    <Description>List the presets stored in the camera.</Description>
+    <Observable>No</Observable>
+    <Response>
+      <Identifier>Presets</Identifier>
+      <DisplayName>Presets</DisplayName>
+      <Description>Stored presets.</Description>
+      <DataType>
+        <List>
+          <DataType>
+            <DataTypeIdentifier>Preset</DataTypeIdentifier>
+          </DataType>
+        </List>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>GotoPreset</Identifier>
+    <DisplayName>Go To Preset</DisplayName>
+    <Description>Move to a stored preset and wait until the camera has stopped.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>PresetToken</Identifier>
+      <DisplayName>Preset Token</DisplayName>
+      <Description>Token of the preset (see GetPresets).</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>Position after the movement.</Description>
+      <DataType>
+        <DataTypeIdentifier>PanTiltPosition</DataTypeIdentifier>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+      <Identifier>MovementInProgress</Identifier>
+      <Identifier>PresetNotFound</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>SavePreset</Identifier>
+    <DisplayName>Save Preset</DisplayName>
+    <Description>Store the current position as a preset with the given name. If a preset with the same name
+      already exists, its position is updated and its token is kept.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>Name</Identifier>
+      <DisplayName>Name</DisplayName>
+      <Description>Preset name: 1 to 32 bytes in UTF-8 (e.g. up to 32 ASCII characters or about 10 Japanese
+        characters). The characters &amp; &lt; &gt; " ' are not allowed (the camera cannot handle them).</Description>
+      <DataType>
+        <Constrained>
+          <DataType>
+            <Basic>String</Basic>
+          </DataType>
+          <Constraints>
+            <MinimalLength>1</MinimalLength>
+            <MaximalLength>32</MaximalLength>
+            <Pattern>[^&amp;&lt;&gt;"']+</Pattern>
+          </Constraints>
+        </Constrained>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Preset</Identifier>
+      <DisplayName>Preset</DisplayName>
+      <Description>The saved preset.</Description>
+      <DataType>
+        <DataTypeIdentifier>Preset</DataTypeIdentifier>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+      <Identifier>PresetLimitReached</Identifier>
+      <Identifier>InvalidPresetName</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>RemovePreset</Identifier>
+    <DisplayName>Remove Preset</DisplayName>
+    <Description>Delete a stored preset.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>PresetToken</Identifier>
+      <DisplayName>Preset Token</DisplayName>
+      <Description>Token of the preset (see GetPresets).</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Parameter>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+      <Identifier>PresetNotFound</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Property>
+    <Identifier>CurrentPosition</Identifier>
+    <DisplayName>Current Position</DisplayName>
+    <Description>Current pan/tilt position as reported by the camera (may change while moving).</Description>
+    <Observable>No</Observable>
+    <DataType>
+      <DataTypeIdentifier>PanTiltPosition</DataTypeIdentifier>
+    </DataType>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+    </DefinedExecutionErrors>
+  </Property>
+  <DefinedExecutionError>
+    <Identifier>CameraCommunicationError</Identifier>
+    <DisplayName>Camera Communication Error</DisplayName>
+    <Description>The camera could not be reached or returned an error. The message contains details.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>InvalidInstrumentStatus</Identifier>
+    <DisplayName>Invalid Instrument Status</DisplayName>
+    <Description>The command cannot be executed because the status is Not Connected or Error. Use Reset first.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>MovementInProgress</Identifier>
+    <DisplayName>Movement In Progress</DisplayName>
+    <Description>Another movement command is still running. Wait for it to finish and retry.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PresetNotFound</Identifier>
+    <DisplayName>Preset Not Found</DisplayName>
+    <Description>No preset with the given token exists. Use GetPresets to list valid tokens.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PresetLimitReached</Identifier>
+    <DisplayName>Preset Limit Reached</DisplayName>
+    <Description>The camera cannot store more presets (8 on Tapo C232). Remove a preset first.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>InvalidPresetName</Identifier>
+    <DisplayName>Invalid Preset Name</DisplayName>
+    <Description>The preset name is longer than 32 bytes in UTF-8.</Description>
+  </DefinedExecutionError>
+  <DataTypeDefinition>
+    <Identifier>NormalizedCoordinate</Identifier>
+    <DisplayName>Normalized Coordinate</DisplayName>
+    <Description>Normalized pan or tilt position, -1.0 to +1.0 (see the feature description).</Description>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>Real</Basic>
+        </DataType>
+        <Constraints>
+          <MinimalInclusive>-1.0</MinimalInclusive>
+          <MaximalInclusive>1.0</MaximalInclusive>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>NormalizedOffset</Identifier>
+    <DisplayName>Normalized Offset</DisplayName>
+    <Description>Normalized pan or tilt offset, -2.0 to +2.0 (see the feature description).</Description>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>Real</Basic>
+        </DataType>
+        <Constraints>
+          <MinimalInclusive>-2.0</MinimalInclusive>
+          <MaximalInclusive>2.0</MaximalInclusive>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>PanTiltPosition</Identifier>
+    <DisplayName>Pan Tilt Position</DisplayName>
+    <Description>A pan/tilt position in normalized coordinates (see the feature description).</Description>
+    <DataType>
+      <Structure>
+        <Element>
+          <Identifier>Pan</Identifier>
+          <DisplayName>Pan</DisplayName>
+          <Description>Pan, -1.0 to +1.0. Positive = left of the power-up front, about 170 degrees per 1.0.</Description>
+          <DataType>
+            <Basic>Real</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Tilt</Identifier>
+          <DisplayName>Tilt</DisplayName>
+          <Description>Tilt, -1.0 to +1.0. Positive = up, about 35 degrees per 1.0.</Description>
+          <DataType>
+            <Basic>Real</Basic>
+          </DataType>
+        </Element>
+      </Structure>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>Preset</Identifier>
+    <DisplayName>Preset</DisplayName>
+    <Description>A stored pan/tilt preset.</Description>
+    <DataType>
+      <Structure>
+        <Element>
+          <Identifier>PresetToken</Identifier>
+          <DisplayName>Preset Token</DisplayName>
+          <Description>Identifier assigned by the camera; use it with GotoPreset and RemovePreset.</Description>
+          <DataType>
+            <Basic>String</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Name</Identifier>
+          <DisplayName>Name</DisplayName>
+          <Description>User-defined name.</Description>
+          <DataType>
+            <Basic>String</Basic>
+          </DataType>
+        </Element>
+      </Structure>
+    </DataType>
+  </DataTypeDefinition>
+</Feature>

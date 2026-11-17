@@ -1,0 +1,333 @@
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="instruments" FeatureVersion="1.0" MaturityLevel="Draft" Originator="org.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>VideoCaptureController</Identifier>
+  <DisplayName>Video Capture Controller</DisplayName>
+  <Description>Still snapshots and fixed-duration video recordings from the camera's RTSP streams.
+
+    Streams:
+      "Main": full-resolution stream (Tapo C232: 2880 x 1620, H.264, about 2 Mbit/s, about 15 MB per minute).
+      "Sub" : low-resolution stream (Tapo C232: 640 x 360, H.264, about 0.23 Mbit/s, about 1.7 MB per minute).
+      The actual resolution depends on the camera model and its stream settings.
+    Video is stored without re-encoding, so the file size is roughly bit rate x duration.
+    Audio (optional) is converted to AAC and adds about 0.5 MB per minute or less.
+
+    Recordings are kept on the server and identified by a RecordingId (a random UUID version 4).
+    A recording is downloaded with GetRecording; file system paths are never exposed.
+    The server may delete old recordings automatically according to its retention settings
+    (maximum age and maximum total size, configured when the server is started).</Description>
+  <Command>
+    <Identifier>TakeSnapshot</Identifier>
+    <DisplayName>Take Snapshot</DisplayName>
+    <Description>Capture one still image (JPEG) from the selected stream. Takes about 2 seconds.
+      Can be executed while the camera is moving or recording.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>Stream</Identifier>
+      <DisplayName>Stream</DisplayName>
+      <Description>"Main" (full resolution) or "Sub" (low resolution).</Description>
+      <DataType>
+        <DataTypeIdentifier>StreamName</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Image</Identifier>
+      <DisplayName>Image</DisplayName>
+      <Description>The captured image as JPEG.</Description>
+      <DataType>
+        <Constrained>
+          <DataType>
+            <Basic>Binary</Basic>
+          </DataType>
+          <Constraints>
+            <ContentType>
+              <Type>image</Type>
+              <Subtype>jpeg</Subtype>
+            </ContentType>
+          </Constraints>
+        </Constrained>
+      </DataType>
+    </Response>
+    <Response>
+      <Identifier>Width</Identifier>
+      <DisplayName>Width</DisplayName>
+      <Description>Image width in pixels.</Description>
+      <DataType>
+        <Basic>Integer</Basic>
+      </DataType>
+    </Response>
+    <Response>
+      <Identifier>Height</Identifier>
+      <DisplayName>Height</DisplayName>
+      <Description>Image height in pixels.</Description>
+      <DataType>
+        <Basic>Integer</Basic>
+      </DataType>
+    </Response>
+    <Response>
+      <Identifier>CapturedAt</Identifier>
+      <DisplayName>Captured At</DisplayName>
+      <Description>Time at which the frame was received by the server.</Description>
+      <DataType>
+        <Basic>Timestamp</Basic>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>RecordVideo</Identifier>
+    <DisplayName>Record Video</DisplayName>
+    <Description>Record video from the selected stream for the given duration and store it on the server as MP4
+      (H.264 video, optional AAC audio). The command finishes when the recording is complete;
+      execution progress is reported while recording. Several recordings and snapshots may run at the
+      same time, and the camera may be moved while recording.
+      The recording starts at the next key frame of the stream, so it may start up to about 2 seconds
+      after the command is accepted.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>Stream</Identifier>
+      <DisplayName>Stream</DisplayName>
+      <Description>"Main" (full resolution) or "Sub" (low resolution).</Description>
+      <DataType>
+        <DataTypeIdentifier>StreamName</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Parameter>
+      <Identifier>Duration</Identifier>
+      <DisplayName>Duration</DisplayName>
+      <Description>Recording duration in seconds (1 to 600).</Description>
+      <DataType>
+        <Constrained>
+          <DataType>
+            <Basic>Real</Basic>
+          </DataType>
+          <Constraints>
+            <MinimalInclusive>1</MinimalInclusive>
+            <MaximalInclusive>600</MaximalInclusive>
+            <Unit>
+              <Label>s</Label>
+              <Factor>1</Factor>
+              <Offset>0</Offset>
+              <UnitComponent>
+                <SIUnit>Second</SIUnit>
+                <Exponent>1</Exponent>
+              </UnitComponent>
+            </Unit>
+          </Constraints>
+        </Constrained>
+      </DataType>
+    </Parameter>
+    <Parameter>
+      <Identifier>IncludeAudio</Identifier>
+      <DisplayName>Include Audio</DisplayName>
+      <Description>If true, the camera microphone audio is included (converted to AAC).</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Recording</Identifier>
+      <DisplayName>Recording</DisplayName>
+      <Description>Information about the stored recording, including its RecordingId.</Description>
+      <DataType>
+        <DataTypeIdentifier>RecordingInfo</DataTypeIdentifier>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+      <Identifier>InvalidInstrumentStatus</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>GetRecording</Identifier>
+    <DisplayName>Get Recording</DisplayName>
+    <Description>Download a stored recording as an MP4 file.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>RecordingId</Identifier>
+      <DisplayName>Recording ID</DisplayName>
+      <Description>ID returned by RecordVideo or ListRecordings.</Description>
+      <DataType>
+        <DataTypeIdentifier>RecordingId</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Video</Identifier>
+      <DisplayName>Video</DisplayName>
+      <Description>The recording as MP4.</Description>
+      <DataType>
+        <Constrained>
+          <DataType>
+            <Basic>Binary</Basic>
+          </DataType>
+          <Constraints>
+            <ContentType>
+              <Type>video</Type>
+              <Subtype>mp4</Subtype>
+            </ContentType>
+          </Constraints>
+        </Constrained>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>RecordingNotFound</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
+    <Identifier>ListRecordings</Identifier>
+    <DisplayName>List Recordings</DisplayName>
+    <Description>List the recordings stored on the server, oldest first.</Description>
+    <Observable>No</Observable>
+    <Response>
+      <Identifier>Recordings</Identifier>
+      <DisplayName>Recordings</DisplayName>
+      <Description>Stored recordings.</Description>
+      <DataType>
+        <List>
+          <DataType>
+            <DataTypeIdentifier>RecordingInfo</DataTypeIdentifier>
+          </DataType>
+        </List>
+      </DataType>
+    </Response>
+  </Command>
+  <Command>
+    <Identifier>DeleteRecording</Identifier>
+    <DisplayName>Delete Recording</DisplayName>
+    <Description>Delete a stored recording.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>RecordingId</Identifier>
+      <DisplayName>Recording ID</DisplayName>
+      <Description>ID of the recording to delete.</Description>
+      <DataType>
+        <DataTypeIdentifier>RecordingId</DataTypeIdentifier>
+      </DataType>
+    </Parameter>
+    <DefinedExecutionErrors>
+      <Identifier>RecordingNotFound</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <DefinedExecutionError>
+    <Identifier>CameraCommunicationError</Identifier>
+    <DisplayName>Camera Communication Error</DisplayName>
+    <Description>The camera stream could not be opened or was interrupted. The message contains details.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>InvalidInstrumentStatus</Identifier>
+    <DisplayName>Invalid Instrument Status</DisplayName>
+    <Description>The command cannot be executed because the status is Not Connected or Error. Use Reset first.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RecordingNotFound</Identifier>
+    <DisplayName>Recording Not Found</DisplayName>
+    <Description>No recording with the given ID exists (it may have been deleted or expired).</Description>
+  </DefinedExecutionError>
+  <DataTypeDefinition>
+    <Identifier>StreamName</Identifier>
+    <DisplayName>Stream Name</DisplayName>
+    <Description>Camera stream: "Main" (full resolution) or "Sub" (low resolution).</Description>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>String</Basic>
+        </DataType>
+        <Constraints>
+          <Set>
+            <Value>Main</Value>
+            <Value>Sub</Value>
+          </Set>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>RecordingId</Identifier>
+    <DisplayName>Recording ID</DisplayName>
+    <Description>Identifier of a stored recording: a UUID version 4 in lower-case canonical form.</Description>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>String</Basic>
+        </DataType>
+        <Constraints>
+          <Pattern>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}</Pattern>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>RecordingInfo</Identifier>
+    <DisplayName>Recording Info</DisplayName>
+    <Description>Metadata of a stored recording.</Description>
+    <DataType>
+      <Structure>
+        <Element>
+          <Identifier>RecordingId</Identifier>
+          <DisplayName>Recording ID</DisplayName>
+          <Description>ID used with GetRecording and DeleteRecording.</Description>
+          <DataType>
+            <DataTypeIdentifier>RecordingId</DataTypeIdentifier>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>StartedAt</Identifier>
+          <DisplayName>Started At</DisplayName>
+          <Description>Time of the first recorded frame.</Description>
+          <DataType>
+            <Basic>Timestamp</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Duration</Identifier>
+          <DisplayName>Duration</DisplayName>
+          <Description>Actual duration of the stored video in seconds.</Description>
+          <DataType>
+            <Basic>Real</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Stream</Identifier>
+          <DisplayName>Stream</DisplayName>
+          <Description>Stream that was recorded ("Main" or "Sub").</Description>
+          <DataType>
+            <DataTypeIdentifier>StreamName</DataTypeIdentifier>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>IncludeAudio</Identifier>
+          <DisplayName>Include Audio</DisplayName>
+          <Description>Whether the recording contains audio.</Description>
+          <DataType>
+            <Basic>Boolean</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Width</Identifier>
+          <DisplayName>Width</DisplayName>
+          <Description>Video width in pixels.</Description>
+          <DataType>
+            <Basic>Integer</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Height</Identifier>
+          <DisplayName>Height</DisplayName>
+          <Description>Video height in pixels.</Description>
+          <DataType>
+            <Basic>Integer</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>FileSize</Identifier>
+          <DisplayName>File Size</DisplayName>
+          <Description>Size of the MP4 file in bytes.</Description>
+          <DataType>
+            <Basic>Integer</Basic>
+          </DataType>
+        </Element>
+      </Structure>
+    </DataType>
+  </DataTypeDefinition>
+</Feature>

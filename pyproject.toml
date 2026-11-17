@@ -1,0 +1,24 @@
+[project]
+name = "tapo-camera-controller"
+version = "0.1.0"
+description = "SiLA 2 server for TP-Link Tapo pan/tilt cameras (ONVIF + RTSP)"
+readme = "README.md"
+authors = [
+    { name = "Kazunari Kaizu", email = "kwaizu@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "av>=19.0.2",
+    "keyring>=25.7.0",
+    "requests>=2.34.2",
+    "sila2[codegen]>=0.14.0",
+    "typer>=0.29.1",
+]
+
+[project.scripts]
+tapo-camera-controller = "tapo_camera_controller.__main__:run"
+
+[build-system]
+requires = ["uv_build>=0.8.20,<0.9.0"]
+build-backend = "uv_build"
+

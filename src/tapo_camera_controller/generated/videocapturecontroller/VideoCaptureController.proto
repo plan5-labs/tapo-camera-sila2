@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+import "SiLAFramework.proto";
+
+package sila2.org.riken.instruments.videocapturecontroller.v1;
+
+/* Still snapshots and fixed-duration video recordings from the camera's RTSP streams. Streams: "Main": full-resolution stream (Tapo C232: 2880 x 1620, H.264, about 2 Mbit/s, about 15 MB per minute). "Sub" : low-resolution stream (Tapo C232: 640 x 360, H.264, about 0.23 Mbit/s, about 1.7 MB per minute). The actual resolution depends on the camera model and its stream settings. Video is stored without re-encoding, so the file size is roughly bit rate x duration. Audio (optional) is converted to AAC and adds about 0.5 MB per minute or less. Recordings are kept on the server and identified by a RecordingId (a random UUID version 4). A recording is downloaded with GetRecording; file system paths are never exposed. The server may delete old recordings automatically according to its retention settings (maximum age and maximum total size, configured when the server is started). */
+service VideoCaptureController {
+  /* Capture one still image (JPEG) from the selected stream. Takes about 2 seconds. Can be executed while the camera is moving or recording. */
+  rpc TakeSnapshot (sila2.org.riken.instruments.videocapturecontroller.v1.TakeSnapshot_Parameters) returns (sila2.org.riken.instruments.videocapturecontroller.v1.TakeSnapshot_Responses) {}
+  /* 
+      Record video from the selected stream for the given duration and store it on the server as MP4
+      (H.264 video, optional AAC audio). The command finishes when the recording is complete;
+      execution progress is reported while recording. Several recordings and snapshots may run at the
+      same time, and the camera may be moved while recording.
+      The recording starts at the next key frame of the stream, so it may start up to about 2 seconds
+      after the command is accepted.
+     */
+  rpc RecordVideo (sila2.org.riken.instruments.videocapturecontroller.v1.RecordVideo_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of RecordVideo */
+  rpc RecordVideo_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve result of RecordVideo */
+  rpc RecordVideo_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.org.riken.instruments.videocapturecontroller.v1.RecordVideo_Responses) {}
+  /* Download a stored recording as an MP4 file. */
+  rpc GetRecording (sila2.org.riken.instruments.videocapturecontroller.v1.GetRecording_Parameters) returns (sila2.org.riken.instruments.videocapturecontroller.v1.GetRecording_Responses) {}
+  /* List the recordings stored on the server, oldest first. */
+  rpc ListRecordings (sila2.org.riken.instruments.videocapturecontroller.v1.ListRecordings_Parameters) returns (sila2.org.riken.instruments.videocapturecontroller.v1.ListRecordings_Responses) {}
+  /* Delete a stored recording. */
+  rpc DeleteRecording (sila2.org.riken.instruments.videocapturecontroller.v1.DeleteRecording_Parameters) returns (sila2.org.riken.instruments.videocapturecontroller.v1.DeleteRecording_Responses) {}
+}
+
+/* Camera stream: "Main" (full resolution) or "Sub" (low resolution). */
+message DataType_StreamName {
+  sila2.org.silastandard.String StreamName = 1;  /* Camera stream: "Main" (full resolution) or "Sub" (low resolution). */
+}
+
+/* Identifier of a stored recording: a UUID version 4 in lower-case canonical form. */
+message DataType_RecordingId {
+  sila2.org.silastandard.String RecordingId = 1;  /* Identifier of a stored recording: a UUID version 4 in lower-case canonical form. */
+}
+
+/* Metadata of a stored recording. */
+message DataType_RecordingInfo {
+  message RecordingInfo_Struct {
+    sila2.org.riken.instruments.videocapturecontroller.v1.DataType_RecordingId RecordingId = 1;  /* ID used with GetRecording and DeleteRecording. */
+    sila2.org.silastandard.Timestamp StartedAt = 2;  /* Time of the first recorded frame. */
+    sila2.org.silastandard.Real Duration = 3;  /* Actual duration of the stored video in seconds. */
+    sila2.org.riken.instruments.videocapturecontroller.v1.DataType_StreamName Stream = 4;  /* Stream that was recorded ("Main" or "Sub"). */
+    sila2.org.silastandard.Boolean IncludeAudio = 5;  /* Whether the recording contains audio. */
+    sila2.org.silastandard.Integer Width = 6;  /* Video width in pixels. */
+    sila2.org.silastandard.Integer Height = 7;  /* Video height in pixels. */
+    sila2.org.silastandard.Integer FileSize = 8;  /* Size of the MP4 file in bytes. */
+  }
+  sila2.org.riken.instruments.videocapturecontroller.v1.DataType_RecordingInfo.RecordingInfo_Struct RecordingInfo = 1;  /* Metadata of a stored recording. */
+}
+
+/* Parameters for TakeSnapshot */
+message TakeSnapshot_Parameters {
+  sila2.org.riken.instruments.videocapturecontroller.v1.DataType_StreamName Stream = 1;  /* "Main" (full resolution) or "Sub" (low resolution). */
+}
+
+/* Responses of TakeSnapshot */
+message TakeSnapshot_Responses {
+  sila2.org.silastandard.Binary Image = 1;  /* The captured image as JPEG. */
+  sila2.org.silastandard.Integer Width = 2;  /* Image width in pixels. */
+  sila2.org.silastandard.Integer Height = 3;  /* Image height in pixels. */
+  sila2.org.silastandard.Timestamp CapturedAt = 4;  /* Time at which the frame was received by the server. */
+}
+
+/* Parameters for RecordVideo */
+message RecordVideo_Parameters {
+  sila2.org.riken.instruments.videocapturecontroller.v1.DataType_StreamName Stream = 1;  /* "Main" (full resolution) or "Sub" (low resolution). */
+  sila2.org.silastandard.Real Duration = 2;  /* Recording duration in seconds (1 to 600). */
+  sila2.org.silastandard.Boolean IncludeAudio = 3;  /* If true, the camera microphone audio is included (converted to AAC). */
+}
+
+/* Responses of RecordVideo */
+message RecordVideo_Responses {
+  sila2.org.riken.instruments.videocapturecontroller.v1.DataType_RecordingInfo Recording = 1;  /* Information about the stored recording, including its RecordingId. */
+}
+
+/* Parameters for GetRecording */
+message GetRecording_Parameters {
+  sila2.org.riken.instruments.videocapturecontroller.v1.DataType_RecordingId RecordingId = 1;  /* ID returned by RecordVideo or ListRecordings. */
+}
+
+/* Responses of GetRecording */
+message GetRecording_Responses {
+  sila2.org.silastandard.Binary Video = 1;  /* The recording as MP4. */
+}
+
+/* Parameters for ListRecordings */
+message ListRecordings_Parameters {
+}
+
+/* Responses of ListRecordings */
+message ListRecordings_Responses {
+  repeated sila2.org.riken.instruments.videocapturecontroller.v1.DataType_RecordingInfo Recordings = 1;  /* Stored recordings. */
+}
+
+/* Parameters for DeleteRecording */
+message DeleteRecording_Parameters {
+  sila2.org.riken.instruments.videocapturecontroller.v1.DataType_RecordingId RecordingId = 1;  /* ID of the recording to delete. */
+}
+
+/* Responses of DeleteRecording */
+message DeleteRecording_Responses {
+}

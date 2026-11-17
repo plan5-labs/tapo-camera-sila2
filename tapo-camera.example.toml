@@ -1,0 +1,35 @@
+# Example configuration for tapo-camera-controller.
+# Copy to e.g. tapo-camera.toml (git-ignored) and start with:
+#   uv run tapo-camera-controller --config tapo-camera.toml
+#
+# Precedence: command-line option > this file > built-in default.
+# Relative paths are resolved against the directory of this file.
+# Secrets are NOT accepted here (any key containing "password" is rejected):
+# the camera credentials are stored with `uv run scripts/set_credentials.py`.
+# Remove or comment out a key to use the default.
+
+[server]
+address = "127.0.0.1"          # "0.0.0.0" to accept connections from other PCs
+port = 50052
+# uuid = "6f1c2c1e-0d7f-4d0e-9a1b-2c3d4e5f6a7b"   # fixed server UUID (default: random per start)
+# name = "Tapo Camera Controller"
+# description = "Lab camera above bench 3"
+insecure = false               # true: no TLS
+# disable_discovery = false
+# cert_file = "certs/server-cert.pem"            # TLS certificate and private key (both or neither)
+# private_key_file = "certs/server-key.pem"
+
+[camera]
+profile = "default"            # credential profile (scripts/set_credentials.py --profile <name>)
+ptz = "auto"                   # auto | on | off
+
+[recordings]
+# A recording is stored as <directory>/<RecordingId>.mp4 with metadata in <RecordingId>.json.
+# Default directory: %LOCALAPPDATA%\tapo-camera-controller\recordings (Windows),
+#                    ~/.local/share/tapo-camera-controller/recordings (Linux)
+# directory = 'D:\lab-data\tapo\recordings'      # single quotes: backslashes are kept literally
+max_age_hours = 168            # delete recordings older than this; 0 = keep forever
+max_storage_mb = 2048          # delete the oldest recordings above this total; 0 = no limit
+
+[logging]
+level = "info"                 # error | warning | info | debug

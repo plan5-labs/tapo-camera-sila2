@@ -1,0 +1,20 @@
+# Python / uv
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+
+# local outputs and secrets
+probe_output/
+smoke_output/
+*.env.local
+.env
+
+# vendor manuals (not redistributable)
+*.pdf
+
+# local configuration (machine-specific)
+tapo-camera.toml

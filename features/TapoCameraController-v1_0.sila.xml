@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Feature SiLA2Version="1.0" FeatureVersion="1.0" MaturityLevel="Draft" Originator="org.riken"
+         Category="instruments"
+         xmlns="http://www.sila-standard.org"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+
+  <Identifier>TapoCameraController</Identifier>
+  <DisplayName>Tapo Camera Controller</DisplayName>
+  <Description>
+    Connection state and device information of a TP-Link Tapo network camera.
+
+    The server talks to the camera over the local network only, using the standard ONVIF (TCP 2020)
+    and RTSP (TCP 554) interfaces authenticated with the camera account
+    (Tapo app: Camera Settings > Advanced Settings > Camera Account). No TP-Link cloud account is used.
+
+    Verified model: Tapo C232 (firmware 1.9.1). Other Tapo cameras exposing the same ONVIF/RTSP
+    interface (e.g. C200, C210, C220, C225, C230) are expected to work but are not verified.
+    Features of this server:
+      - TapoCameraController (this feature): status, device information, reset.
+      - VideoCaptureController: still snapshots and fixed-duration video recordings.
+      - PanTiltController: pan/tilt movement and presets (only offered if the camera supports PTZ).
+
+    Status values (see property Status):
+      0: Not Connected - the camera could not be reached; use Reset to reconnect.
+      1: Idle          - connected, no camera operation in progress.
+      2: Running       - at least one camera operation (snapshot, recording, movement) is in progress.
+                         Snapshots and recordings may run concurrently with each other and with movements.
+      3: Error         - a camera operation failed; use Reset to recover.
+    Commands of all features are rejected with InvalidInstrumentStatus while the status is
+    Not Connected or Error (except Reset).
+  </Description>
+
+  <Command>
+    <Identifier>Reset</Identifier>
+    <DisplayName>Reset</DisplayName>
+    <Description>
+      Re-establish the connection to the camera and return the server to the Idle state.
+      Use this after the status became Error or Not Connected.
+
+      Status required to execute this command: any
+      Status after this command finishes
+        If it completes normally: Idle
+        If the camera cannot be reached: Not Connected (CameraCommunicationError is raised)
+    </Description>
+    <Observable>No</Observable>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <Property>
+    <Identifier>Status</Identifier>
+    <DisplayName>Status</DisplayName>
+    <Description>
+      Status of the camera connection.
+      0: Not Connected, 1: Idle, 2: Running, 3: Error (see the feature description for details).
+    </Description>
+    <Observable>Yes</Observable>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>Integer</Basic>
+        </DataType>
+        <Constraints>
+          <MinimalInclusive>0</MinimalInclusive>
+          <MaximalInclusive>3</MaximalInclusive>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </Property>
+
+  <Property>
+    <Identifier>DeviceInformation</Identifier>
+    <DisplayName>Device Information</DisplayName>
+    <Description>Device information reported by the camera via ONVIF.</Description>
+    <Observable>No</Observable>
+    <DataType>
+      <Structure>
+        <Element>
+          <Identifier>Manufacturer</Identifier>
+          <DisplayName>Manufacturer</DisplayName>
+          <Description>Manufacturer name (e.g. "tp-link").</Description>
+          <DataType><Basic>String</Basic></DataType>
+        </Element>
+        <Element>
+          <Identifier>Model</Identifier>
+          <DisplayName>Model</DisplayName>
+          <Description>Model name (e.g. "Tapo C232").</Description>
+          <DataType><Basic>String</Basic></DataType>
+        </Element>
+        <Element>
+          <Identifier>FirmwareVersion</Identifier>
+          <DisplayName>Firmware Version</DisplayName>
+          <Description>Firmware version string.</Description>
+          <DataType><Basic>String</Basic></DataType>
+        </Element>
+        <Element>
+          <Identifier>SerialNumber</Identifier>
+          <DisplayName>Serial Number</DisplayName>
+          <Description>Serial number.</Description>
+          <DataType><Basic>String</Basic></DataType>
+        </Element>
+        <Element>
+          <Identifier>HardwareId</Identifier>
+          <DisplayName>Hardware ID</DisplayName>
+          <Description>Hardware version identifier.</Description>
+          <DataType><Basic>String</Basic></DataType>
+        </Element>
+      </Structure>
+    </DataType>
+    <DefinedExecutionErrors>
+      <Identifier>CameraCommunicationError</Identifier>
+    </DefinedExecutionErrors>
+  </Property>
+
+  <DefinedExecutionError>
+    <Identifier>CameraCommunicationError</Identifier>
+    <DisplayName>Camera Communication Error</DisplayName>
+    <Description>The camera could not be reached or returned an error. The message contains details.</Description>
+  </DefinedExecutionError>
+
+</Feature>
