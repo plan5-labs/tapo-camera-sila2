@@ -64,7 +64,7 @@ message TakeSnapshot_Responses {
   sila2.org.silastandard.Binary Image = 1;  /* The captured image as JPEG. */
   sila2.org.silastandard.Integer Width = 2;  /* Image width in pixels. */
   sila2.org.silastandard.Integer Height = 3;  /* Image height in pixels. */
-  sila2.org.silastandard.Timestamp CapturedAt = 4;  /* Time at which the frame was received by the server. */
+  sila2.org.silastandard.Timestamp CapturedAt = 4;  /* Time (server clock, UTC) at which the server had received and decoded the frame, before the JPEG encoding. Use it as the capture time. The time the camera overlays on the image comes from the camera's own clock and is typically a few seconds earlier (camera clock offset and stream latency); do not compare the two to the second. */
 }
 
 /* Parameters for RecordVideo */

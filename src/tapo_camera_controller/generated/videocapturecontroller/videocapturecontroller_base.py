@@ -71,7 +71,12 @@ class VideoCaptureControllerBase(FeatureImplementationBase, ABC):
 
               - Height: Image height in pixels.
 
-              - CapturedAt: Time at which the frame was received by the server.
+              - CapturedAt:
+          Time (server clock, UTC) at which the server had received and decoded the frame, before the
+          JPEG encoding. Use it as the capture time. The time the camera overlays on the image comes from
+          the camera's own clock and is typically a few seconds earlier (camera clock offset and stream
+          latency); do not compare the two to the second.
+
 
 
         """
