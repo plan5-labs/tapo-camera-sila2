@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     )
     from sila2.client import ClientMetadataInstance, ClientObservableCommandInstance, ClientUnobservableProperty
 
-    from .pantiltcontroller_types import NormalizedCoordinate, NormalizedOffset
+    from .pantiltcontroller_types import PanAngle, PanOffset, TiltAngle, TiltOffset
 
 
 class PanTiltControllerClient:
@@ -31,27 +31,29 @@ class PanTiltControllerClient:
 
     Pan/tilt movement and position presets of the camera (via ONVIF PTZ).
 
-    Coordinate system (normalized ONVIF generic space, unitless, range -1.0 to +1.0 on both axes):
+    Coordinate system (angles in degrees):
       Origin (Pan 0, Tilt 0): the direction the camera faces after power-up, i.e. the side of the
         camera body with the logo. MoveHome returns to it.
       Pan : positive = turn to the LEFT as seen from behind the camera (counter-clockwise viewed from
             above, for a camera standing on a table). Negative = turn to the right.
-            -1.0 to +1.0 spans the mechanical pan range of 340 degrees (Tapo C232),
-            i.e. about 170 degrees per 1.0: Pan +1.0 is about 170 degrees left, -1.0 about 170 degrees right.
-            Example: to turn about 90 degrees to the left, use MoveRelative with DeltaPan = +0.53.
+            Example: to turn 90 degrees to the left, use MoveRelative with DeltaPan = +90.
       Tilt: positive = UP, negative = DOWN.
-            -1.0 to +1.0 spans the mechanical tilt range of 69 degrees (Tapo C232),
-            i.e. about 35 degrees per 1.0.
-      Note: the product page also states "360 degrees pan / 110 degrees tilt"; those are the visible
-      coverage including the lens field of view, not the movement range.
-      The degree values assume a linear mapping derived from the specification and were only roughly
-      confirmed by eye on a Tapo C232 (pan: Pan -0.5 to +0.5 looked like about 170 to 180 degrees).
-      Treat them as approximations. For a ceiling-mounted camera the directions may be inverted (not verified).
-      Other camera models may have different mechanical ranges.
+      Movement range: see the MovementRange property. On a Tapo C232 it is Pan -170 to +170
+        (340 degrees mechanical range) and Tilt -34.5 to +34.5 (69 degrees).
+      A target outside the movement range is not an error: the camera stops at the limit.
+      Check the returned position.
+
+    Accuracy: the camera works in a unitless -1 to +1 space; this server converts linearly using the
+    mechanical range of the model (server options --pan-range-deg / --tilt-range-deg, Tapo C232 values
+    by default). On a Tapo C232 this was only roughly confirmed by eye (Pan -85 to +85 looked like about
+    170 to 180 degrees). Treat angles as approximate, to within several degrees. Positions are reported
+    rounded to 0.1 degree. The product page also states "360 degrees pan / 110 degrees tilt"; those are
+    the visible coverage including the lens field of view, not the movement range. For a
+    ceiling-mounted camera the directions may be inverted (not verified).
 
     Movement behavior (Tapo C232):
-      The camera moves pan first, then tilt. Pan speed is about 0.19 per second (about 32 degrees per
-      second); a full pan sweep from -1.0 to +1.0 takes about 11 seconds, plus up to about 5 seconds of tilt.
+      The camera moves pan first, then tilt. Pan speed is about 32 degrees per second; a full pan sweep
+      (340 degrees) takes about 11 seconds, plus up to about 5 seconds of tilt.
       Movement commands finish only when the camera has stopped, and return the final position.
       Only one movement can run at a time; a movement command issued while another is running is
       rejected with MovementInProgress. Snapshots and recordings may run during movements.
@@ -64,7 +66,15 @@ class PanTiltControllerClient:
 
     CurrentPosition: ClientUnobservableProperty[PanTiltPosition]
     """
-    Current pan/tilt position as reported by the camera (may change while moving).
+    Current pan/tilt position in degrees as reported by the camera (may change while moving).
+    """
+
+    MovementRange: ClientUnobservableProperty[MovementRange]
+    """
+    
+      The pan and tilt limits in degrees. They come from the server configuration
+      (--pan-range-deg / --tilt-range-deg; Tapo C232 values by default), not from the camera.
+    
     """
 
     def GetPresets(self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None) -> GetPresets_Responses:
@@ -93,32 +103,23 @@ class PanTiltControllerClient:
         ...
 
     def MoveAbsolute(
-        self,
-        Pan: NormalizedCoordinate,
-        Tilt: NormalizedCoordinate,
-        *,
-        metadata: Optional[Iterable[ClientMetadataInstance]] = None,
+        self, Pan: PanAngle, Tilt: TiltAngle, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
     ) -> ClientObservableCommandInstance[MoveAbsolute_Responses]:
         """
 
-        Move to an absolute pan/tilt position and wait until the camera has stopped.
-        See the feature description for the meaning of the coordinates.
+        Move to an absolute pan/tilt position (degrees from the power-up front) and wait until the
+        camera has stopped. A target outside MovementRange stops at the limit.
 
         """
         ...
 
     def MoveRelative(
-        self,
-        DeltaPan: NormalizedOffset,
-        DeltaTilt: NormalizedOffset,
-        *,
-        metadata: Optional[Iterable[ClientMetadataInstance]] = None,
+        self, DeltaPan: PanOffset, DeltaTilt: TiltOffset, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
     ) -> ClientObservableCommandInstance[MoveRelative_Responses]:
         """
 
-        Move by the given offsets from the current position and wait until the camera has stopped.
-        If the target lies outside -1.0 to +1.0, the camera stops at the limit (no error);
-        check the returned position.
+        Turn by the given angles from the current position and wait until the camera has stopped.
+        A target outside MovementRange stops at the limit (no error); check the returned position.
 
         """
         ...

@@ -57,10 +57,16 @@ class GotoPreset_Responses(NamedTuple):
     """
 
 
-NormalizedCoordinate = float
+PanAngle = float
 
-NormalizedOffset = float
+TiltAngle = float
+
+PanOffset = float
+
+TiltOffset = float
 
 PanTiltPosition = Any
+
+MovementRange = Any
 
 Preset = Any

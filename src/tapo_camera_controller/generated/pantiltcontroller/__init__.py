@@ -15,13 +15,16 @@ from .pantiltcontroller_types import (
     GotoPreset_Responses,
     MoveAbsolute_Responses,
     MoveHome_Responses,
+    MovementRange,
     MoveRelative_Responses,
-    NormalizedCoordinate,
-    NormalizedOffset,
+    PanAngle,
+    PanOffset,
     PanTiltPosition,
     Preset,
     RemovePreset_Responses,
     SavePreset_Responses,
+    TiltAngle,
+    TiltOffset,
 )
 
 __all__ = [
@@ -41,8 +44,11 @@ __all__ = [
     "PresetNotFound",
     "PresetLimitReached",
     "InvalidPresetName",
-    "NormalizedCoordinate",
-    "NormalizedOffset",
+    "PanAngle",
+    "TiltAngle",
+    "PanOffset",
+    "TiltOffset",
     "PanTiltPosition",
+    "MovementRange",
     "Preset",
 ]

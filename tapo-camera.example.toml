@@ -22,6 +22,9 @@ insecure = false               # true: no TLS
 [camera]
 profile = "default"            # credential profile (scripts/set_credentials.py --profile <name>)
 ptz = "auto"                   # auto | on | off
+# Mechanical movement range in degrees, used to convert the camera's -1..+1 coordinates to degrees.
+# pan_range_deg = 340          # Tapo C232: 340 (-170..+170)
+# tilt_range_deg = 69          # Tapo C232: 69 (-34.5..+34.5)
 
 [recordings]
 # A recording is stored as <directory>/<RecordingId>.mp4 with metadata in <RecordingId>.json.

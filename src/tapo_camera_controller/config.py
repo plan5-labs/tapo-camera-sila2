@@ -44,6 +44,8 @@ SCHEMA: dict[str, dict[str, _Key]] = {
     "camera": {
         "profile": _Key("camera_profile", str),
         "ptz": _Key("ptz", str, choices=("auto", "on", "off")),
+        "pan_range_deg": _Key("pan_range_deg", (int, float)),
+        "tilt_range_deg": _Key("tilt_range_deg", (int, float)),
     },
     "recordings": {
         "directory": _Key("recording_dir", str, is_path=True),

@@ -27,14 +27,17 @@ from ..generated.pantiltcontroller import (
     MoveHome_Responses,
     MovementInProgress,
     MoveRelative_Responses,
-    NormalizedCoordinate,
-    NormalizedOffset,
+    MovementRange,
+    PanAngle,
+    PanOffset,
     PanTiltControllerBase,
     PanTiltPosition,
     PresetLimitReached,
     PresetNotFound,
     RemovePreset_Responses,
     SavePreset_Responses,
+    TiltAngle,
+    TiltOffset,
 )
 from ..onvif import PtzVector
 
@@ -62,14 +65,18 @@ def _sila_errors() -> Iterator[None]:
         raise CameraCommunicationError(str(e)) from None
 
 
-def _pos(v: PtzVector) -> dict[str, float]:
-    return {"Pan": round(v.pan, 4), "Tilt": round(v.tilt, 4)}
-
-
 class PanTiltControllerImpl(PanTiltControllerBase):
-    def __init__(self, parent_server: Server) -> None:
+    """Pan/tilt in degrees; the camera itself works in normalized -1..+1 coordinates.
+
+    The conversion is linear: +/-1 is half the mechanical range of the model
+    (--pan-range-deg / --tilt-range-deg).
+    """
+
+    def __init__(self, parent_server: Server, pan_range_deg: float = 340.0, tilt_range_deg: float = 69.0) -> None:
         super().__init__(parent_server=parent_server)
         self.camera = parent_server.camera
+        self.pan_half = pan_range_deg / 2  # degrees at normalized +1
+        self.tilt_half = tilt_range_deg / 2
         for cmd in ("MoveAbsolute", "MoveRelative", "MoveHome", "GotoPreset"):
             setattr(self, f"{cmd}_default_lifetime_of_execution", timedelta(minutes=30))
 
@@ -83,32 +90,43 @@ class PanTiltControllerImpl(PanTiltControllerBase):
         with _sila_errors():
             pos = fn(*args, progress=progress)
         logger.info("%s%s -> %s", name, args, pos)
-        return _pos(pos)
+        return self._degrees(pos)
+
+    def _degrees(self, v: PtzVector) -> dict[str, float]:
+        return {"Pan": round(v.pan * self.pan_half, 1), "Tilt": round(v.tilt * self.tilt_half, 1)}
 
     def get_CurrentPosition(self, *, metadata: MetadataDict) -> PanTiltPosition:
         with _sila_errors():
-            return _pos(self.camera.position())
+            return self._degrees(self.camera.position())
+
+    def get_MovementRange(self, *, metadata: MetadataDict) -> MovementRange:
+        return {"PanMin": -self.pan_half, "PanMax": self.pan_half, "TiltMin": -self.tilt_half, "TiltMax": self.tilt_half}
 
     def MoveAbsolute(
         self,
-        Pan: NormalizedCoordinate,
-        Tilt: NormalizedCoordinate,
+        Pan: PanAngle,
+        Tilt: TiltAngle,
         *,
         metadata: MetadataDict,
         instance: ObservableCommandInstance,
     ) -> MoveAbsolute_Responses:
-        return MoveAbsolute_Responses(self._run(instance, "MoveAbsolute", self.camera.move_absolute, Pan, Tilt))
+        # outside the movement range: stop at the limit, as MoveRelative does
+        pan = max(-1.0, min(1.0, Pan / self.pan_half))
+        tilt = max(-1.0, min(1.0, Tilt / self.tilt_half))
+        return MoveAbsolute_Responses(self._run(instance, "MoveAbsolute", self.camera.move_absolute, pan, tilt))
 
     def MoveRelative(
         self,
-        DeltaPan: NormalizedOffset,
-        DeltaTilt: NormalizedOffset,
+        DeltaPan: PanOffset,
+        DeltaTilt: TiltOffset,
         *,
         metadata: MetadataDict,
         instance: ObservableCommandInstance,
     ) -> MoveRelative_Responses:
+        # camera.move_relative clamps the target to the -1..+1 range
+        d_pan, d_tilt = DeltaPan / self.pan_half, DeltaTilt / self.tilt_half
         return MoveRelative_Responses(
-            self._run(instance, "MoveRelative", self.camera.move_relative, DeltaPan, DeltaTilt)
+            self._run(instance, "MoveRelative", self.camera.move_relative, d_pan, d_tilt)
         )
 
     def MoveHome(self, *, metadata: MetadataDict, instance: ObservableCommandInstance) -> MoveHome_Responses:
