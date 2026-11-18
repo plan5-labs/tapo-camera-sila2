@@ -23,7 +23,7 @@ client or agent can understand coordinates, units and limits).
 |---|---|---|
 | TapoCameraController | Reset | Status (0 Not Connected / 1 Idle / 2 Running / 3 Error), DeviceInformation |
 | VideoCaptureController | TakeSnapshot, RecordVideo (observable), GetRecording, ListRecordings, DeleteRecording | – |
-| PanTiltController | MoveAbsolute, MoveRelative, MoveHome, GotoPreset (observable), GetPresets, SavePreset, RemovePreset | CurrentPosition |
+| PanTiltController (v2) | MoveAbsolute, MoveRelative, MoveHome, GotoPreset (observable), GetPresets, SavePreset, RemovePreset | CurrentPosition, MovementRange |
 | CameraSettingsController | SetImageSettings, ResetImageSettings, SetMainStreamResolution | ImageSettings, MainStreamResolution, AvailableMainStreamResolutions |
 
 Key behavior:
@@ -32,9 +32,14 @@ Key behavior:
   (MP4/H.264); optional audio is converted to AAC.
 - **Recordings** are identified by a random UUID v4 and downloaded with `GetRecording`;
   file paths are never exposed. Old recordings are deleted automatically (see options).
-- **Pan/tilt coordinates** are normalized ONVIF values in −1…+1. Origin = power-up front
-  (logo side). Pan + = left (seen from behind), ≈170°/unit (340° mechanical range).
-  Tilt + = up, ≈35°/unit (69° mechanical range). Movement commands return when the camera has stopped.
+- **Pan/tilt angles** are in degrees from the power-up front (logo side). Pan + = left (seen
+  from behind), Tilt + = up. C232 range: pan −170…+170, tilt −34.5…+34.5 (`MovementRange`);
+  a target beyond it stops at the limit. Angles are converted linearly from the camera's
+  normalized ONVIF coordinates (−1…+1) and are approximate (within several degrees).
+  Movement commands return when the camera has stopped.
+  (PanTiltController v1 used the normalized coordinates directly.)
+- **Snapshot time**: `CapturedAt` is when the server received the frame (server clock, UTC);
+  the time overlaid by the camera is typically a few seconds earlier.
 - Snapshots and recordings may run concurrently with each other and with movements;
   only one movement at a time (`MovementInProgress`).
 - Camera limits (C232): at most 8 presets; preset names ≤ 32 bytes UTF-8 without `& < > " '`.
@@ -78,6 +83,8 @@ Camera-specific options (in addition to the standard sila2 options such as `-a`,
 | `--max-recording-age-hours` | 168 | Delete older recordings (0 = keep forever) |
 | `--max-recording-storage-mb` | 2048 | Delete the oldest recordings above this total (0 = no limit) |
 | `--ptz` | `auto` | Offer PanTiltController: `auto` / `on` / `off` |
+| `--pan-range-deg` | 340 | Mechanical pan range of the model, for the conversion to degrees |
+| `--tilt-range-deg` | 69 | Mechanical tilt range of the model, for the conversion to degrees |
 
 If the camera is unreachable at startup, the server still starts with status Not Connected;
 call `Reset` to reconnect.
@@ -118,7 +125,7 @@ def wait(cmd):  # observable commands run asynchronously
 
 c = SilaClient("127.0.0.1", 50052, insecure=True)
 img = c.VideoCaptureController.TakeSnapshot("Main").Image                # JPEG bytes
-pos = wait(c.PanTiltController.MoveRelative(0.53, 0.0)).Position        # ~90° left
+pos = wait(c.PanTiltController.MoveRelative(90.0, 0.0)).Position        # 90° left
 rec = wait(c.VideoCaptureController.RecordVideo("Sub", 10.0, False)).Recording
 mp4 = c.VideoCaptureController.GetRecording(rec.RecordingId).Video
 ```

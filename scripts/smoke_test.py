@@ -86,18 +86,26 @@ def main() -> int:
     expect_error("TakeSnapshot(invalid stream) -> ValidationError", lambda: vid.TakeSnapshot("Foo"), None)
 
     print("== PanTiltController ==")
+    # angles in degrees; the camera quantizes its normalized position (about 0.01 = 1.7 deg pan, 0.35 deg tilt)
+    def near(pos, pan, tilt):
+        return abs(pos.Pan - pan) < 1.5 and abs(pos.Tilt - tilt) < 0.5
+
+    rng = ptz.MovementRange.get()
+    check("MovementRange (C232 defaults)", (rng.PanMin, rng.PanMax, rng.TiltMin, rng.TiltMax) == (-170, 170, -34.5, 34.5), str(rng))
     p = ptz.CurrentPosition.get()
-    check("CurrentPosition", -1 <= p.Pan <= 1 and -1 <= p.Tilt <= 1, f"{p.Pan}, {p.Tilt}")
-    r = wait(ptz.MoveAbsolute(0.3, 0.2), "MoveAbsolute")
-    check("MoveAbsolute(0.3, 0.2)", abs(r.Position.Pan - 0.3) < 0.01 and abs(r.Position.Tilt - 0.2) < 0.01, str(r.Position))
-    r = wait(ptz.MoveRelative(-0.1, -0.1), "MoveRelative")
-    check("MoveRelative(-0.1, -0.1)", abs(r.Position.Pan - 0.2) < 0.01 and abs(r.Position.Tilt - 0.1) < 0.01, str(r.Position))
-    r = wait(ptz.MoveRelative(2.0, 0.0), "MoveRelative to limit")
-    check("MoveRelative(+2.0, 0) clamps at +1", abs(r.Position.Pan - 1.0) < 0.01, str(r.Position))
-    expect_error("MoveAbsolute(1.5, 0) -> ValidationError", lambda: ptz.MoveAbsolute(1.5, 0.0), None)
+    check("CurrentPosition", rng.PanMin <= p.Pan <= rng.PanMax and rng.TiltMin <= p.Tilt <= rng.TiltMax, f"{p.Pan}, {p.Tilt}")
+    r = wait(ptz.MoveAbsolute(50.0, 7.0), "MoveAbsolute")
+    check("MoveAbsolute(50, 7)", near(r.Position, 50, 7), str(r.Position))
+    r = wait(ptz.MoveRelative(-17.0, -3.5), "MoveRelative")
+    check("MoveRelative(-17, -3.5)", near(r.Position, 33, 3.5), str(r.Position))
+    r = wait(ptz.MoveRelative(360.0, 0.0), "MoveRelative to limit")
+    check("MoveRelative(+360, 0) stops at PanMax", abs(r.Position.Pan - rng.PanMax) < 1.5, str(r.Position))
+    r = wait(ptz.MoveAbsolute(-175.0, 0.0), "MoveAbsolute beyond range")
+    check("MoveAbsolute(-175, 0) stops at PanMin", abs(r.Position.Pan - rng.PanMin) < 1.5, str(r.Position))
+    expect_error("MoveAbsolute(200, 0) -> ValidationError", lambda: ptz.MoveAbsolute(200.0, 0.0), None)
 
     # concurrent movement is rejected
-    first = ptz.MoveAbsolute(-0.5, 0.0)
+    first = ptz.MoveAbsolute(-85.0, 0.0)
     time.sleep(0.5)
     second = ptz.MoveHome()
     try:
@@ -108,7 +116,7 @@ def main() -> int:
     wait(first, "first move")
 
     # snapshot during movement
-    mv = ptz.MoveAbsolute(0.5, 0.0)
+    mv = ptz.MoveAbsolute(85.0, 0.0)
     time.sleep(0.5)
     r = vid.TakeSnapshot("Sub")
     check("TakeSnapshot during movement", r.Image[:2] == b"\xff\xd8")
@@ -124,9 +132,9 @@ def main() -> int:
     again = ptz.SavePreset("smoke テスト").Preset  # same name -> overwrite
     n_after = len(ptz.GetPresets().Presets)
     check("SavePreset same name overwrites", again.PresetToken == saved.PresetToken and n_after == len(before) + 1, str(again))
-    wait(ptz.MoveAbsolute(0.4, 0.0), "move away")
+    wait(ptz.MoveAbsolute(68.0, 0.0), "move away")
     r = wait(ptz.GotoPreset(saved.PresetToken), "GotoPreset")
-    check("GotoPreset returns to overwritten position (home)", abs(r.Position.Pan) < 0.01 and abs(r.Position.Tilt) < 0.01, str(r.Position))
+    check("GotoPreset returns to overwritten position (home)", near(r.Position, 0, 0), str(r.Position))
     expect_error("GotoPreset(unknown) -> PresetNotFound", lambda: wait(ptz.GotoPreset("9999"), "x"), "PresetNotFound")
     expect_error("RemovePreset(unknown) -> PresetNotFound", lambda: ptz.RemovePreset("9999"), "PresetNotFound")
     expect_error("SavePreset('a&b') -> ValidationError", lambda: ptz.SavePreset("a&b"), None)
@@ -140,7 +148,7 @@ def main() -> int:
     # record while moving
     rec_cmd = vid.RecordVideo("Sub", 6.0, True)
     time.sleep(1.0)
-    mv = ptz.MoveRelative(0.3, 0.0)
+    mv = ptz.MoveRelative(51.0, 0.0)
     wait(mv, "move during recording")
     rec = wait(rec_cmd, "RecordVideo").Recording
     check("RecordVideo(Sub, 6 s, audio)", abs(rec.Duration - 6.0) < 0.3 and rec.IncludeAudio, f"{rec.Duration:.2f} s, {rec.Width}x{rec.Height}, {rec.FileSize} B, id {rec.RecordingId}")

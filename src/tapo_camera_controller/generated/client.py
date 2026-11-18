@@ -22,7 +22,7 @@ class Client(SilaClient):
     _expected_features: Set[FullyQualifiedFeatureIdentifier] = {
         FullyQualifiedFeatureIdentifier("org.silastandard/core/SiLAService/v1"),
         FullyQualifiedFeatureIdentifier("org.riken/instruments/CameraSettingsController/v1"),
-        FullyQualifiedFeatureIdentifier("org.riken/instruments/PanTiltController/v1"),
+        FullyQualifiedFeatureIdentifier("org.riken/instruments/PanTiltController/v2"),
         FullyQualifiedFeatureIdentifier("org.riken/instruments/TapoCameraController/v1"),
         FullyQualifiedFeatureIdentifier("org.riken/instruments/VideoCaptureController/v1"),
     }

@@ -66,7 +66,10 @@
     <Response>
       <Identifier>CapturedAt</Identifier>
       <DisplayName>Captured At</DisplayName>
-      <Description>Time at which the frame was received by the server.</Description>
+      <Description>Time (server clock, UTC) at which the server had received and decoded the frame, before the
+        JPEG encoding. Use it as the capture time. The time the camera overlays on the image comes from
+        the camera's own clock and is typically a few seconds earlier (camera clock offset and stream
+        latency); do not compare the two to the second.</Description>
       <DataType>
         <Basic>Timestamp</Basic>
       </DataType>

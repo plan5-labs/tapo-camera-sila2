@@ -35,14 +35,16 @@ def _open(url: str, timeout: float) -> av.container.InputContainer:
     return av.open(url, options={"rtsp_transport": "tcp"}, timeout=timeout)
 
 
-def snapshot_jpeg(url: str, *, timeout: float = 10.0, quality: int = 2) -> tuple[bytes, int, int]:
-    """Grab one decoded video frame and return (jpeg_bytes, width, height).
+def snapshot_jpeg(url: str, *, timeout: float = 10.0, quality: int = 2) -> tuple[bytes, int, int, dt.datetime]:
+    """Grab one decoded video frame and return (jpeg_bytes, width, height, received_at).
 
-    ``quality`` is the MJPEG qscale (2 = best, 31 = worst).
+    ``received_at`` is the wall-clock time (UTC) at which the frame had been received and
+    decoded, before the JPEG encoding. ``quality`` is the MJPEG qscale (2 = best, 31 = worst).
     """
     with _open(url, timeout) as inp:
         stream = inp.streams.video[0]
         for frame in inp.decode(stream):  # first successfully decoded frame
+            received_at = dt.datetime.now(dt.timezone.utc)
             buf = io.BytesIO()
             with av.open(buf, "w", format="image2pipe") as out:
                 enc = out.add_stream("mjpeg", rate=1)
@@ -53,7 +55,7 @@ def snapshot_jpeg(url: str, *, timeout: float = 10.0, quality: int = 2) -> tuple
                     out.mux(pkt)
                 for pkt in enc.encode(None):
                     out.mux(pkt)
-            return buf.getvalue(), frame.width, frame.height
+            return buf.getvalue(), frame.width, frame.height, received_at
     raise RuntimeError("no video frame received")
 
 

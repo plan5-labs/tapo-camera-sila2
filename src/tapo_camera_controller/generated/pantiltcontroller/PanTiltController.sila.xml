@@ -1,29 +1,31 @@
-<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="instruments" FeatureVersion="1.0" MaturityLevel="Draft" Originator="org.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="instruments" FeatureVersion="2.0" MaturityLevel="Draft" Originator="org.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
   <Identifier>PanTiltController</Identifier>
   <DisplayName>Pan Tilt Controller</DisplayName>
   <Description>Pan/tilt movement and position presets of the camera (via ONVIF PTZ).
 
-    Coordinate system (normalized ONVIF generic space, unitless, range -1.0 to +1.0 on both axes):
+    Coordinate system (angles in degrees):
       Origin (Pan 0, Tilt 0): the direction the camera faces after power-up, i.e. the side of the
         camera body with the logo. MoveHome returns to it.
       Pan : positive = turn to the LEFT as seen from behind the camera (counter-clockwise viewed from
             above, for a camera standing on a table). Negative = turn to the right.
-            -1.0 to +1.0 spans the mechanical pan range of 340 degrees (Tapo C232),
-            i.e. about 170 degrees per 1.0: Pan +1.0 is about 170 degrees left, -1.0 about 170 degrees right.
-            Example: to turn about 90 degrees to the left, use MoveRelative with DeltaPan = +0.53.
+            Example: to turn 90 degrees to the left, use MoveRelative with DeltaPan = +90.
       Tilt: positive = UP, negative = DOWN.
-            -1.0 to +1.0 spans the mechanical tilt range of 69 degrees (Tapo C232),
-            i.e. about 35 degrees per 1.0.
-      Note: the product page also states "360 degrees pan / 110 degrees tilt"; those are the visible
-      coverage including the lens field of view, not the movement range.
-      The degree values assume a linear mapping derived from the specification and were only roughly
-      confirmed by eye on a Tapo C232 (pan: Pan -0.5 to +0.5 looked like about 170 to 180 degrees).
-      Treat them as approximations. For a ceiling-mounted camera the directions may be inverted (not verified).
-      Other camera models may have different mechanical ranges.
+      Movement range: see the MovementRange property. On a Tapo C232 it is Pan -170 to +170
+        (340 degrees mechanical range) and Tilt -34.5 to +34.5 (69 degrees).
+      A target outside the movement range is not an error: the camera stops at the limit.
+      Check the returned position.
+
+    Accuracy: the camera works in a unitless -1 to +1 space; this server converts linearly using the
+    mechanical range of the model (server options --pan-range-deg / --tilt-range-deg, Tapo C232 values
+    by default). On a Tapo C232 this was only roughly confirmed by eye (Pan -85 to +85 looked like about
+    170 to 180 degrees). Treat angles as approximate, to within several degrees. Positions are reported
+    rounded to 0.1 degree. The product page also states "360 degrees pan / 110 degrees tilt"; those are
+    the visible coverage including the lens field of view, not the movement range. For a
+    ceiling-mounted camera the directions may be inverted (not verified).
 
     Movement behavior (Tapo C232):
-      The camera moves pan first, then tilt. Pan speed is about 0.19 per second (about 32 degrees per
-      second); a full pan sweep from -1.0 to +1.0 takes about 11 seconds, plus up to about 5 seconds of tilt.
+      The camera moves pan first, then tilt. Pan speed is about 32 degrees per second; a full pan sweep
+      (340 degrees) takes about 11 seconds, plus up to about 5 seconds of tilt.
       Movement commands finish only when the camera has stopped, and return the final position.
       Only one movement can run at a time; a movement command issued while another is running is
       rejected with MovementInProgress. Snapshots and recordings may run during movements.
@@ -34,23 +36,23 @@
   <Command>
     <Identifier>MoveAbsolute</Identifier>
     <DisplayName>Move Absolute</DisplayName>
-    <Description>Move to an absolute pan/tilt position and wait until the camera has stopped.
-      See the feature description for the meaning of the coordinates.</Description>
+    <Description>Move to an absolute pan/tilt position (degrees from the power-up front) and wait until the
+      camera has stopped. A target outside MovementRange stops at the limit.</Description>
     <Observable>Yes</Observable>
     <Parameter>
       <Identifier>Pan</Identifier>
       <DisplayName>Pan</DisplayName>
-      <Description>Target pan, -1.0 (about 170 degrees right) to +1.0 (about 170 degrees left); 0 = power-up front.</Description>
+      <Description>Target pan in degrees. Positive = left, negative = right; 0 = power-up front.</Description>
       <DataType>
-        <DataTypeIdentifier>NormalizedCoordinate</DataTypeIdentifier>
+        <DataTypeIdentifier>PanAngle</DataTypeIdentifier>
       </DataType>
     </Parameter>
     <Parameter>
       <Identifier>Tilt</Identifier>
       <DisplayName>Tilt</DisplayName>
-      <Description>Target tilt, -1.0 (lowest) to +1.0 (highest); 0 = power-up tilt. About 35 degrees per 1.0.</Description>
+      <Description>Target tilt in degrees. Positive = up, negative = down; 0 = power-up tilt.</Description>
       <DataType>
-        <DataTypeIdentifier>NormalizedCoordinate</DataTypeIdentifier>
+        <DataTypeIdentifier>TiltAngle</DataTypeIdentifier>
       </DataType>
     </Parameter>
     <Response>
@@ -70,24 +72,23 @@
   <Command>
     <Identifier>MoveRelative</Identifier>
     <DisplayName>Move Relative</DisplayName>
-    <Description>Move by the given offsets from the current position and wait until the camera has stopped.
-      If the target lies outside -1.0 to +1.0, the camera stops at the limit (no error);
-      check the returned position.</Description>
+    <Description>Turn by the given angles from the current position and wait until the camera has stopped.
+      A target outside MovementRange stops at the limit (no error); check the returned position.</Description>
     <Observable>Yes</Observable>
     <Parameter>
       <Identifier>DeltaPan</Identifier>
       <DisplayName>Delta Pan</DisplayName>
-      <Description>Pan offset, -2.0 to +2.0. Positive = left. About 170 degrees per 1.0.</Description>
+      <Description>Pan change in degrees. Positive = left, negative = right.</Description>
       <DataType>
-        <DataTypeIdentifier>NormalizedOffset</DataTypeIdentifier>
+        <DataTypeIdentifier>PanOffset</DataTypeIdentifier>
       </DataType>
     </Parameter>
     <Parameter>
       <Identifier>DeltaTilt</Identifier>
       <DisplayName>Delta Tilt</DisplayName>
-      <Description>Tilt offset, -2.0 to +2.0. Positive = up. About 35 degrees per 1.0.</Description>
+      <Description>Tilt change in degrees. Positive = up, negative = down.</Description>
       <DataType>
-        <DataTypeIdentifier>NormalizedOffset</DataTypeIdentifier>
+        <DataTypeIdentifier>TiltOffset</DataTypeIdentifier>
       </DataType>
     </Parameter>
     <Response>
@@ -234,7 +235,7 @@
   <Property>
     <Identifier>CurrentPosition</Identifier>
     <DisplayName>Current Position</DisplayName>
-    <Description>Current pan/tilt position as reported by the camera (may change while moving).</Description>
+    <Description>Current pan/tilt position in degrees as reported by the camera (may change while moving).</Description>
     <Observable>No</Observable>
     <DataType>
       <DataTypeIdentifier>PanTiltPosition</DataTypeIdentifier>
@@ -242,6 +243,16 @@
     <DefinedExecutionErrors>
       <Identifier>CameraCommunicationError</Identifier>
     </DefinedExecutionErrors>
+  </Property>
+  <Property>
+    <Identifier>MovementRange</Identifier>
+    <DisplayName>Movement Range</DisplayName>
+    <Description>The pan and tilt limits in degrees. They come from the server configuration
+      (--pan-range-deg / --tilt-range-deg; Tapo C232 values by default), not from the camera.</Description>
+    <Observable>No</Observable>
+    <DataType>
+      <DataTypeIdentifier>MovementRange</DataTypeIdentifier>
+    </DataType>
   </Property>
   <DefinedExecutionError>
     <Identifier>CameraCommunicationError</Identifier>
@@ -274,33 +285,101 @@
     <Description>The preset name is longer than 32 bytes in UTF-8.</Description>
   </DefinedExecutionError>
   <DataTypeDefinition>
-    <Identifier>NormalizedCoordinate</Identifier>
-    <DisplayName>Normalized Coordinate</DisplayName>
-    <Description>Normalized pan or tilt position, -1.0 to +1.0 (see the feature description).</Description>
+    <Identifier>PanAngle</Identifier>
+    <DisplayName>Pan Angle</DisplayName>
+    <Description>Pan in degrees from the power-up front, positive = left. The usable range is MovementRange.</Description>
     <DataType>
       <Constrained>
         <DataType>
           <Basic>Real</Basic>
         </DataType>
         <Constraints>
-          <MinimalInclusive>-1.0</MinimalInclusive>
-          <MaximalInclusive>1.0</MaximalInclusive>
+          <MinimalInclusive>-180</MinimalInclusive>
+          <MaximalInclusive>180</MaximalInclusive>
+          <Unit>
+            <Label>deg</Label>
+            <Factor>0.017453292519943295</Factor>
+            <Offset>0</Offset>
+            <UnitComponent>
+              <SIUnit>Dimensionless</SIUnit>
+              <Exponent>1</Exponent>
+            </UnitComponent>
+          </Unit>
         </Constraints>
       </Constrained>
     </DataType>
   </DataTypeDefinition>
   <DataTypeDefinition>
-    <Identifier>NormalizedOffset</Identifier>
-    <DisplayName>Normalized Offset</DisplayName>
-    <Description>Normalized pan or tilt offset, -2.0 to +2.0 (see the feature description).</Description>
+    <Identifier>TiltAngle</Identifier>
+    <DisplayName>Tilt Angle</DisplayName>
+    <Description>Tilt in degrees from the power-up tilt, positive = up. The usable range is MovementRange.</Description>
     <DataType>
       <Constrained>
         <DataType>
           <Basic>Real</Basic>
         </DataType>
         <Constraints>
-          <MinimalInclusive>-2.0</MinimalInclusive>
-          <MaximalInclusive>2.0</MaximalInclusive>
+          <MinimalInclusive>-90</MinimalInclusive>
+          <MaximalInclusive>90</MaximalInclusive>
+          <Unit>
+            <Label>deg</Label>
+            <Factor>0.017453292519943295</Factor>
+            <Offset>0</Offset>
+            <UnitComponent>
+              <SIUnit>Dimensionless</SIUnit>
+              <Exponent>1</Exponent>
+            </UnitComponent>
+          </Unit>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>PanOffset</Identifier>
+    <DisplayName>Pan Offset</DisplayName>
+    <Description>Pan change in degrees, positive = left.</Description>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>Real</Basic>
+        </DataType>
+        <Constraints>
+          <MinimalInclusive>-360</MinimalInclusive>
+          <MaximalInclusive>360</MaximalInclusive>
+          <Unit>
+            <Label>deg</Label>
+            <Factor>0.017453292519943295</Factor>
+            <Offset>0</Offset>
+            <UnitComponent>
+              <SIUnit>Dimensionless</SIUnit>
+              <Exponent>1</Exponent>
+            </UnitComponent>
+          </Unit>
+        </Constraints>
+      </Constrained>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>TiltOffset</Identifier>
+    <DisplayName>Tilt Offset</DisplayName>
+    <Description>Tilt change in degrees, positive = up.</Description>
+    <DataType>
+      <Constrained>
+        <DataType>
+          <Basic>Real</Basic>
+        </DataType>
+        <Constraints>
+          <MinimalInclusive>-180</MinimalInclusive>
+          <MaximalInclusive>180</MaximalInclusive>
+          <Unit>
+            <Label>deg</Label>
+            <Factor>0.017453292519943295</Factor>
+            <Offset>0</Offset>
+            <UnitComponent>
+              <SIUnit>Dimensionless</SIUnit>
+              <Exponent>1</Exponent>
+            </UnitComponent>
+          </Unit>
         </Constraints>
       </Constrained>
     </DataType>
@@ -308,23 +387,64 @@
   <DataTypeDefinition>
     <Identifier>PanTiltPosition</Identifier>
     <DisplayName>Pan Tilt Position</DisplayName>
-    <Description>A pan/tilt position in normalized coordinates (see the feature description).</Description>
+    <Description>A pan/tilt position in degrees from the power-up front (see the feature description).</Description>
     <DataType>
       <Structure>
         <Element>
           <Identifier>Pan</Identifier>
           <DisplayName>Pan</DisplayName>
-          <Description>Pan, -1.0 to +1.0. Positive = left of the power-up front, about 170 degrees per 1.0.</Description>
+          <Description>Pan in degrees. Positive = left of the power-up front.</Description>
           <DataType>
-            <Basic>Real</Basic>
+            <DataTypeIdentifier>PanAngle</DataTypeIdentifier>
           </DataType>
         </Element>
         <Element>
           <Identifier>Tilt</Identifier>
           <DisplayName>Tilt</DisplayName>
-          <Description>Tilt, -1.0 to +1.0. Positive = up, about 35 degrees per 1.0.</Description>
+          <Description>Tilt in degrees. Positive = up.</Description>
           <DataType>
-            <Basic>Real</Basic>
+            <DataTypeIdentifier>TiltAngle</DataTypeIdentifier>
+          </DataType>
+        </Element>
+      </Structure>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>MovementRange</Identifier>
+    <DisplayName>Movement Range</DisplayName>
+    <Description>Pan and tilt limits in degrees.</Description>
+    <DataType>
+      <Structure>
+        <Element>
+          <Identifier>PanMin</Identifier>
+          <DisplayName>Pan Min</DisplayName>
+          <Description>Rightmost pan (negative).</Description>
+          <DataType>
+            <DataTypeIdentifier>PanAngle</DataTypeIdentifier>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>PanMax</Identifier>
+          <DisplayName>Pan Max</DisplayName>
+          <Description>Leftmost pan (positive).</Description>
+          <DataType>
+            <DataTypeIdentifier>PanAngle</DataTypeIdentifier>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>TiltMin</Identifier>
+          <DisplayName>Tilt Min</DisplayName>
+          <Description>Lowest tilt (negative).</Description>
+          <DataType>
+            <DataTypeIdentifier>TiltAngle</DataTypeIdentifier>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>TiltMax</Identifier>
+          <DisplayName>Tilt Max</DisplayName>
+          <Description>Highest tilt (positive).</Description>
+          <DataType>
+            <DataTypeIdentifier>TiltAngle</DataTypeIdentifier>
           </DataType>
         </Element>
       </Structure>

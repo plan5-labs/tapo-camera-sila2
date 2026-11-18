@@ -35,6 +35,8 @@ DEFAULTS: dict[str, Any] = {
     "ca_file_for_discovery": None,
     "camera_profile": "default",
     "ptz": "auto",
+    "pan_range_deg": 340.0,  # Tapo C232
+    "tilt_range_deg": 69.0,  # Tapo C232
     "recording_dir": None,  # -> recordings.default_directory()
     "max_recording_age_hours": 168.0,
     "max_recording_storage_mb": 2048.0,
@@ -100,6 +102,16 @@ def main(
     ptz: Optional[str] = Option(
         None, "--ptz", help="Offer PanTiltController: auto (if the camera supports PTZ), on, off [default: auto]"
     ),
+    pan_range_deg: Optional[float] = Option(
+        None,
+        "--pan-range-deg",
+        help="Mechanical pan range in degrees, for converting to degrees [default: 340 (Tapo C232)]",
+    ),
+    tilt_range_deg: Optional[float] = Option(
+        None,
+        "--tilt-range-deg",
+        help="Mechanical tilt range in degrees, for converting to degrees [default: 69 (Tapo C232)]",
+    ),
 ):
     # ---- merge: command line > configuration file > defaults
     try:
@@ -119,6 +131,8 @@ def main(
         "ca_file_for_discovery": ca_file_for_discovery,
         "camera_profile": camera_profile,
         "ptz": ptz,
+        "pan_range_deg": pan_range_deg,
+        "tilt_range_deg": tilt_range_deg,
         "recording_dir": recording_dir,
         "max_recording_age_hours": max_recording_age_hours,
         "max_recording_storage_mb": max_recording_storage_mb,
@@ -132,6 +146,10 @@ def main(
     # ---- validate parameters
     if s["ptz"] not in ("auto", "on", "off"):
         raise BadParameter("--ptz must be one of: auto, on, off")
+    if not 0 < s["pan_range_deg"] <= 360:
+        raise BadParameter("--pan-range-deg must be greater than 0 and at most 360")
+    if not 0 < s["tilt_range_deg"] <= 180:
+        raise BadParameter("--tilt-range-deg must be greater than 0 and at most 180")
     insecure, cert_file, private_key_file = s["insecure"], s["cert_file"], s["private_key_file"]
     if (insecure or ca_export_file is not None) and (cert_file is not None or private_key_file is not None):
         raise BadParameter("Cannot use --insecure or --ca-export-file with --private-key-file or --cert-file")
@@ -178,6 +196,8 @@ def main(
         name=s["server_name"],
         description=s["server_description"],
         ptz=s["ptz"],
+        pan_range_deg=float(s["pan_range_deg"]),
+        tilt_range_deg=float(s["tilt_range_deg"]),
     )
     ip_address, port, enable_discovery = s["ip_address"], s["port"], not s["disable_discovery"]
 

@@ -227,8 +227,7 @@ class TapoCamera:
 
     def snapshot(self, stream: str) -> tuple[bytes, int, int, dt.datetime]:
         with self.operation("TakeSnapshot"):
-            data, w, h = rtsp.snapshot_jpeg(self._stream_url(stream), timeout=self._timeout)
-            return data, w, h, dt.datetime.now(dt.timezone.utc)
+            return rtsp.snapshot_jpeg(self._stream_url(stream), timeout=self._timeout)
 
     def record(self, stream: str, path, duration_s: float, with_audio: bool, progress=None) -> rtsp.RecordingResult:
         with self.operation("RecordVideo"):
