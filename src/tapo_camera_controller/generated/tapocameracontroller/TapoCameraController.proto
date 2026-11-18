@@ -4,16 +4,16 @@ import "SiLAFramework.proto";
 
 package sila2.org.riken.instruments.tapocameracontroller.v1;
 
-/* Connection state and device information of a TP-Link Tapo network camera. The server talks to the camera over the local network only, using the standard ONVIF (TCP 2020) and RTSP (TCP 554) interfaces authenticated with the camera account (Tapo app: Camera Settings > Advanced Settings > Camera Account). No TP-Link cloud account is used. Verified model: Tapo C232 (firmware 1.9.1). Other Tapo cameras exposing the same ONVIF/RTSP interface (e.g. C200, C210, C220, C225, C230) are expected to work but are not verified. Features of this server: - TapoCameraController (this feature): status, device information, reset. - VideoCaptureController: still snapshots and fixed-duration video recordings. - PanTiltController: pan/tilt movement and presets (only offered if the camera supports PTZ). - CameraSettingsController: color saturation, contrast, sharpness and main-stream resolution (settings stored in the camera itself). Status values (see property Status): 0: Not Connected - the camera could not be reached; use Reset to reconnect. 1: Idle - connected, no camera operation in progress. 2: Running - at least one camera operation (snapshot, recording, movement) is in progress. Snapshots and recordings may run concurrently with each other and with movements. 3: Error - a camera operation failed; use Reset to recover. Commands of all features are rejected with InvalidInstrumentStatus while the status is Not Connected or Error (except Reset). */
+/* State (Not Connected / Idle / Running / Error), device information and reset of a TP-Link Tapo network camera. The server talks to the camera over the local network only, using the standard ONVIF (TCP 2020) and RTSP (TCP 554) interfaces authenticated with the camera account (Tapo app: Camera Settings > Advanced Settings > Camera Account). No TP-Link cloud account is used. Verified model: Tapo C232 (firmware 1.9.1). Other Tapo cameras exposing the same ONVIF/RTSP interface (e.g. C200, C210, C220, C225, C230) are expected to work but are not verified. Features of this server: - TapoCameraController (this feature): status, device information, reset. - VideoCaptureController: still snapshots and fixed-duration video recordings. - PanTiltController: pan/tilt movement and presets (only offered if the camera supports PTZ). - CameraSettingsController: color saturation, contrast, sharpness and main-stream resolution (settings stored in the camera itself). Status values (see property Status): 0: Not Connected - the camera could not be reached; use Reset to reconnect. 1: Idle - connected, no camera operation in progress. 2: Running - at least one camera operation (snapshot, recording, movement, preset or setting change) is in progress. Snapshots and recordings may run concurrently with each other and with movements. 3: Error - a camera operation failed; use Reset to recover. Commands of all features are rejected with InvalidInstrumentStatus while the status is Not Connected or Error (except Reset). */
 service TapoCameraController {
   /* Re-establish the connection to the camera and return the server to the Idle state. Use this after the status became Error or Not Connected. Status required to execute this command: any Status after this command finishes If it completes normally: Idle If the camera cannot be reached: Not Connected (CameraCommunicationError is raised) */
   rpc Reset (sila2.org.riken.instruments.tapocameracontroller.v1.Reset_Parameters) returns (sila2.org.riken.instruments.tapocameracontroller.v1.Reset_Responses) {}
   /* 
-      Status of the camera connection.
-      0: Not Connected, 1: Idle, 2: Running, 3: Error (see the feature description for details).
+      State of the server and its camera: 0 Not Connected, 1 Idle, 2 Running (a camera operation is in progress), 3 Error.
+      Use Reset to leave Not Connected or Error; see the feature description for details.
      */
   rpc Subscribe_Status (sila2.org.riken.instruments.tapocameracontroller.v1.Subscribe_Status_Parameters) returns (stream sila2.org.riken.instruments.tapocameracontroller.v1.Subscribe_Status_Responses) {}
-  /* Device information reported by the camera via ONVIF. */
+  /* Manufacturer, model, firmware version, serial number and hardware ID, as reported by the camera via ONVIF. */
   rpc Get_DeviceInformation (sila2.org.riken.instruments.tapocameracontroller.v1.Get_DeviceInformation_Parameters) returns (sila2.org.riken.instruments.tapocameracontroller.v1.Get_DeviceInformation_Responses) {}
 }
 
@@ -31,7 +31,7 @@ message Subscribe_Status_Parameters {
 
 /* Responses of Status */
 message Subscribe_Status_Responses {
-  sila2.org.silastandard.Integer Status = 1;  /* Status of the camera connection. 0: Not Connected, 1: Idle, 2: Running, 3: Error (see the feature description for details). */
+  sila2.org.silastandard.Integer Status = 1;  /* State of the server and its camera: 0 Not Connected, 1 Idle, 2 Running (a camera operation is in progress), 3 Error. Use Reset to leave Not Connected or Error; see the feature description for details. */
 }
 
 /* Parameters for DeviceInformation */
@@ -47,5 +47,5 @@ message Get_DeviceInformation_Responses {
     sila2.org.silastandard.String SerialNumber = 4;  /* Serial number. */
     sila2.org.silastandard.String HardwareId = 5;  /* Hardware version identifier. */
   }
-  sila2.org.riken.instruments.tapocameracontroller.v1.Get_DeviceInformation_Responses.DeviceInformation_Struct DeviceInformation = 1;  /* Device information reported by the camera via ONVIF. */
+  sila2.org.riken.instruments.tapocameracontroller.v1.Get_DeviceInformation_Responses.DeviceInformation_Struct DeviceInformation = 1;  /* Manufacturer, model, firmware version, serial number and hardware ID, as reported by the camera via ONVIF. */
 }

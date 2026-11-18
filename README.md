@@ -33,13 +33,16 @@ Key behavior:
 - **Recordings** are identified by a random UUID v4 and downloaded with `GetRecording`;
   file paths are never exposed. Old recordings are deleted automatically (see options).
 - **Pan/tilt angles** are in degrees from the power-up front (logo side). Pan + = left (seen
-  from behind), Tilt + = up. C232 range: pan −170…+170, tilt −34.5…+34.5 (`MovementRange`);
-  a target beyond it stops at the limit. Angles are converted linearly from the camera's
-  normalized ONVIF coordinates (−1…+1) and are approximate (within several degrees).
-  Movement commands return when the camera has stopped.
+  from behind; in the image, objects move to the right), Tilt + = up. C232 range: pan
+  −170…+170, tilt −34.5…+34.5 (`MovementRange`); a target beyond it stops at the limit.
+  Angles are converted linearly from the camera's normalized ONVIF coordinates (−1…+1) and are
+  approximate (within several degrees). Movement commands return when the camera has stopped,
+  with the final `Position` and the `StartPosition` (pass it to `MoveAbsolute` to go back).
   (PanTiltController v1 used the normalized coordinates directly.)
-- **Snapshot time**: `CapturedAt` is when the server received the frame (server clock, UTC);
-  the time overlaid by the camera is typically a few seconds earlier.
+- **Snapshots** carry `CapturedAt` (when the server received the frame) and `Position` (pan/tilt
+  read right after it; `PositionAvailable` false without PTZ). The time overlaid by the camera
+  is typically a few seconds earlier.
+- **Times** (`CapturedAt`, `StartedAt`) are in the server's local time zone with the UTC offset.
 - Snapshots and recordings may run concurrently with each other and with movements;
   only one movement at a time (`MovementInProgress`).
 - Camera limits (C232): at most 8 presets; preset names ≤ 32 bytes UTF-8 without `& < > " '`.

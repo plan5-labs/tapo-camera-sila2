@@ -32,12 +32,22 @@ class MoveAbsolute_Responses(NamedTuple):
     Position after the movement.
     """
 
+    StartPosition: PanTiltPosition
+    """
+    Position before the movement (pass it to MoveAbsolute to go back).
+    """
+
 
 class MoveRelative_Responses(NamedTuple):
 
     Position: PanTiltPosition
     """
     Position after the movement.
+    """
+
+    StartPosition: PanTiltPosition
+    """
+    Position before the movement (pass it to MoveAbsolute to go back).
     """
 
 
@@ -48,12 +58,22 @@ class MoveHome_Responses(NamedTuple):
     Position after the movement.
     """
 
+    StartPosition: PanTiltPosition
+    """
+    Position before the movement (pass it to MoveAbsolute to go back).
+    """
+
 
 class GotoPreset_Responses(NamedTuple):
 
     Position: PanTiltPosition
     """
     Position after the movement.
+    """
+
+    StartPosition: PanTiltPosition
+    """
+    Position before the movement (pass it to MoveAbsolute to go back).
     """
 
 
@@ -67,6 +87,6 @@ TiltOffset = float
 
 PanTiltPosition = Any
 
-MovementRange = Any
+PanTiltLimits = Any
 
 Preset = Any

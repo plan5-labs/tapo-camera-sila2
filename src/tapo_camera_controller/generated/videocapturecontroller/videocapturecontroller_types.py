@@ -25,10 +25,19 @@ class TakeSnapshot_Responses(NamedTuple):
     CapturedAt: datetime
     """
     
-        Time (server clock, UTC) at which the server had received and decoded the frame, before the
-        JPEG encoding. Use it as the capture time. The time the camera overlays on the image comes from
-        the camera's own clock and is typically a few seconds earlier (camera clock offset and stream
-        latency); do not compare the two to the second.
+        Time (server clock, local time zone with UTC offset) at which the server had received and
+        decoded the frame, before the JPEG encoding. Use it as the capture time. The time the camera
+        overlays on the image comes from the camera's own clock and is typically a few seconds earlier
+        (camera clock offset and stream latency); do not compare the two to the second.
+      
+    """
+
+    Position: CapturePosition
+    """
+    
+        Pan/tilt position in degrees (as in PanTiltController) read from the camera right after the
+        frame was received. During a movement it is approximate. PositionAvailable is false (and Pan,
+        Tilt are 0) for a camera without pan/tilt or if the position could not be read.
       
     """
 
@@ -67,3 +76,5 @@ StreamName = str
 RecordingId = str
 
 RecordingInfo = Any
+
+CapturePosition = Any

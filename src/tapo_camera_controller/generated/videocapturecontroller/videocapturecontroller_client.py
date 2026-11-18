@@ -42,6 +42,9 @@ class VideoCaptureControllerClient:
     The server may delete old recordings automatically according to its retention settings
     (maximum age and maximum total size, configured when the server is started).
 
+    Times (CapturedAt, StartedAt) are given in the server's local time zone, with its UTC offset
+    (e.g. 2026-11-18T17:16:41.562+09:00).
+
     """
 
     def TakeSnapshot(
@@ -49,7 +52,8 @@ class VideoCaptureControllerClient:
     ) -> TakeSnapshot_Responses:
         """
 
-        Capture one still image (JPEG) from the selected stream. Takes about 2 seconds.
+        Capture one still image (JPEG) from the selected stream, with the capture time and the pan/tilt
+        position at capture. Takes about 2 seconds.
         Can be executed while the camera is moving or recording.
 
         """

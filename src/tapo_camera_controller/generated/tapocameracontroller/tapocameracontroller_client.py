@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class TapoCameraControllerClient:
     """
 
-    Connection state and device information of a TP-Link Tapo network camera.
+    State (Not Connected / Idle / Running / Error), device information and reset of a TP-Link Tapo network camera.
 
     The server talks to the camera over the local network only, using the standard ONVIF (TCP 2020)
     and RTSP (TCP 554) interfaces authenticated with the camera account
@@ -37,7 +37,8 @@ class TapoCameraControllerClient:
     Status values (see property Status):
       0: Not Connected - the camera could not be reached; use Reset to reconnect.
       1: Idle          - connected, no camera operation in progress.
-      2: Running       - at least one camera operation (snapshot, recording, movement) is in progress.
+      2: Running       - at least one camera operation (snapshot, recording, movement, preset or
+                         setting change) is in progress.
                          Snapshots and recordings may run concurrently with each other and with movements.
       3: Error         - a camera operation failed; use Reset to recover.
     Commands of all features are rejected with InvalidInstrumentStatus while the status is
@@ -47,14 +48,14 @@ class TapoCameraControllerClient:
 
     DeviceInformation: ClientUnobservableProperty[Any]
     """
-    Device information reported by the camera via ONVIF.
+    Manufacturer, model, firmware version, serial number and hardware ID, as reported by the camera via ONVIF.
     """
 
     Status: ClientObservableProperty[int]
     """
     
-      Status of the camera connection.
-      0: Not Connected, 1: Idle, 2: Running, 3: Error (see the feature description for details).
+      State of the server and its camera: 0 Not Connected, 1 Idle, 2 Running (a camera operation is in progress), 3 Error.
+      Use Reset to leave Not Connected or Error; see the feature description for details.
     
     """
 
