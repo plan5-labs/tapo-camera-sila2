@@ -36,8 +36,10 @@ class PanTiltControllerClient:
         camera body with the logo. MoveHome returns to it.
       Pan : positive = turn to the LEFT as seen from behind the camera (counter-clockwise viewed from
             above, for a camera standing on a table). Negative = turn to the right.
+            In the camera image, positive pan turns the view to the left: objects in the image move
+            to the right. A person facing the camera sees it turn to their right.
             Example: to turn 90 degrees to the left, use MoveRelative with DeltaPan = +90.
-      Tilt: positive = UP, negative = DOWN.
+      Tilt: positive = UP, negative = DOWN. In the image, positive tilt moves objects down.
       Movement range: see the MovementRange property. On a Tapo C232 it is Pan -170 to +170
         (340 degrees mechanical range) and Tilt -34.5 to +34.5 (69 degrees).
       A target outside the movement range is not an error: the camera stops at the limit.
@@ -54,7 +56,10 @@ class PanTiltControllerClient:
     Movement behavior (Tapo C232):
       The camera moves pan first, then tilt. Pan speed is about 32 degrees per second; a full pan sweep
       (340 degrees) takes about 11 seconds, plus up to about 5 seconds of tilt.
-      Movement commands finish only when the camera has stopped, and return the final position.
+      Movement commands finish only when the camera has stopped, and return the final position
+      (Position) and the position before the movement (StartPosition). To go back to where the camera
+      was before a movement, use MoveAbsolute with that StartPosition; MoveHome instead goes to the
+      power-up front (Pan 0, Tilt 0).
       Only one movement can run at a time; a movement command issued while another is running is
       rejected with MovementInProgress. Snapshots and recordings may run during movements.
 
@@ -66,14 +71,15 @@ class PanTiltControllerClient:
 
     CurrentPosition: ClientUnobservableProperty[PanTiltPosition]
     """
-    Current pan/tilt position in degrees as reported by the camera (may change while moving).
+    Current pan/tilt position in degrees from the power-up front (positive = left / up), as reported by the camera; it changes while moving.
     """
 
-    MovementRange: ClientUnobservableProperty[MovementRange]
+    MovementRange: ClientUnobservableProperty[PanTiltLimits]
     """
     
-      The pan and tilt limits in degrees. They come from the server configuration
-      (--pan-range-deg / --tilt-range-deg; Tapo C232 values by default), not from the camera.
+      The pan and tilt limits in degrees (Tapo C232: pan -170 to +170, tilt -34.5 to +34.5).
+      They come from the server configuration (--pan-range-deg / --tilt-range-deg; Tapo C232 values
+      by default), not from the camera.
     
     """
 
@@ -107,8 +113,9 @@ class PanTiltControllerClient:
     ) -> ClientObservableCommandInstance[MoveAbsolute_Responses]:
         """
 
-        Move to an absolute pan/tilt position (degrees from the power-up front) and wait until the
-        camera has stopped. A target outside MovementRange stops at the limit.
+        Move to an absolute pan/tilt position in degrees from the power-up front (positive = left / up)
+        and wait until the camera has stopped. A target outside MovementRange stops at the limit.
+        To keep one axis where it is, pass its value from CurrentPosition.
 
         """
         ...
@@ -118,7 +125,8 @@ class PanTiltControllerClient:
     ) -> ClientObservableCommandInstance[MoveRelative_Responses]:
         """
 
-        Turn by the given angles from the current position and wait until the camera has stopped.
+        Turn by the given angles in degrees from the current position (positive = left / up) and wait
+        until the camera has stopped. Pass 0 for an axis that should not move.
         A target outside MovementRange stops at the limit (no error); check the returned position.
 
         """

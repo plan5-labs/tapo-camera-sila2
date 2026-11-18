@@ -48,6 +48,9 @@ class Server(SilaServer):
         )
 
         self.camera = TapoCamera(credentials, on_status=self._on_camera_status)
+        # mechanical range of the model, for converting the camera's -1..+1 coordinates to degrees
+        self.pan_range_deg = pan_range_deg
+        self.tilt_range_deg = tilt_range_deg
         self.recordings = recordings
         self.tapocameracontroller: TapoCameraControllerImpl | None = None
         try:
@@ -67,7 +70,7 @@ class Server(SilaServer):
         # auto: offer pan/tilt if the camera reports PTZ (or if it could not be queried at startup)
         offer_ptz = ptz == "on" or (ptz == "auto" and (self.camera.has_ptz or self.camera.status == Status.NotConnected))
         if offer_ptz:
-            self.pantiltcontroller = PanTiltControllerImpl(self, pan_range_deg, tilt_range_deg)
+            self.pantiltcontroller = PanTiltControllerImpl(self)
             self.set_feature_implementation(PanTiltControllerFeature, self.pantiltcontroller)
         else:
             logger.info("PanTiltController not offered (camera reports no PTZ support)")

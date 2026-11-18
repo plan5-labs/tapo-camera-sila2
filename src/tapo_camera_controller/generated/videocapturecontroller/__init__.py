@@ -4,6 +4,7 @@ from .videocapturecontroller_client import VideoCaptureControllerClient
 from .videocapturecontroller_errors import CameraCommunicationError, InvalidInstrumentStatus, RecordingNotFound
 from .videocapturecontroller_feature import VideoCaptureControllerFeature
 from .videocapturecontroller_types import (
+    CapturePosition,
     DeleteRecording_Responses,
     GetRecording_Responses,
     ListRecordings_Responses,
@@ -29,4 +30,5 @@ __all__ = [
     "StreamName",
     "RecordingId",
     "RecordingInfo",
+    "CapturePosition",
 ]

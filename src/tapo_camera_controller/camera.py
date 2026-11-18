@@ -225,9 +225,28 @@ class TapoCamera:
             self._creds.host, self._creds.user, self._creds.password, self._stream_paths[stream], self._rtsp_port
         )
 
-    def snapshot(self, stream: str) -> tuple[bytes, int, int, dt.datetime]:
+    def snapshot(self, stream: str) -> tuple[bytes, int, int, dt.datetime, PtzVector | None]:
+        """(jpeg, width, height, time the frame was received, pan/tilt position at that time or None).
+
+        The position is read right after the frame has been decoded; None without PTZ or if the
+        camera does not report it (the snapshot itself still succeeds).
+        """
+        positions: list[PtzVector | None] = []
+
+        def at_frame() -> None:
+            pos = None
+            if self.has_ptz:
+                try:
+                    pos = self.position()
+                except CameraError as e:
+                    logger.warning("snapshot: could not read the pan/tilt position: %s", e)
+            positions.append(pos)
+
         with self.operation("TakeSnapshot"):
-            return rtsp.snapshot_jpeg(self._stream_url(stream), timeout=self._timeout)
+            data, w, h, received_at = rtsp.snapshot_jpeg(
+                self._stream_url(stream), timeout=self._timeout, on_frame=at_frame
+            )
+            return data, w, h, received_at, positions[0] if positions else None
 
     def record(self, stream: str, path, duration_s: float, with_audio: bool, progress=None) -> rtsp.RecordingResult:
         with self.operation("RecordVideo"):
@@ -303,19 +322,21 @@ class TapoCamera:
                 logger.warning("movement did not settle within %.0f s; returning current position", timeout)
                 return cur
 
-    def move_absolute(self, pan: float, tilt: float, progress=None) -> PtzVector:
+    # The movement methods return (position before, position after).
+
+    def move_absolute(self, pan: float, tilt: float, progress=None) -> tuple[PtzVector, PtzVector]:
         with self._movement("MoveAbsolute"):
             start = self.position()
             target = PtzVector(pan, tilt)
             self._onvif(self.onvif.absolute_move, self._profile(), target)
-            return self._wait_until_stopped(start, target, progress)
+            return start, self._wait_until_stopped(start, target, progress)
 
-    def move_relative(self, d_pan: float, d_tilt: float, progress=None) -> PtzVector:
+    def move_relative(self, d_pan: float, d_tilt: float, progress=None) -> tuple[PtzVector, PtzVector]:
         with self._movement("MoveRelative"):
             start = self.position()
             target = PtzVector(max(-1.0, min(1.0, start.pan + d_pan)), max(-1.0, min(1.0, start.tilt + d_tilt)))
             self._onvif(self.onvif.relative_move, self._profile(), PtzVector(d_pan, d_tilt))
-            return self._wait_until_stopped(start, target, progress)
+            return start, self._wait_until_stopped(start, target, progress)
 
     def presets(self) -> list[Preset]:
         with self.operation("GetPresets"):
@@ -327,13 +348,13 @@ class TapoCamera:
                 return p
         raise PresetNotFoundError(f"no preset with token {token!r}")
 
-    def goto_preset(self, token: str, progress=None) -> PtzVector:
+    def goto_preset(self, token: str, progress=None) -> tuple[PtzVector, PtzVector]:
         with self._movement("GotoPreset"):
             self._find_preset(token)
             start = self.position()
             self._onvif(self.onvif.goto_preset, self._profile(), token)
             # the preset position is not known in advance -> no target / progress
-            return self._wait_until_stopped(start, None, None)
+            return start, self._wait_until_stopped(start, None, None)
 
     def save_preset(self, name: str) -> Preset:
         if len(name.encode("utf-8")) > PRESET_NAME_MAX_BYTES:

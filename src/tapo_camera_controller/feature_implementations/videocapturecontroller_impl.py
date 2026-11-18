@@ -23,6 +23,7 @@ from ..generated.videocapturecontroller import (
     VideoCaptureControllerBase,
 )
 from ..recordings import RecordingMeta, RecordingNotFoundError
+from .pantiltcontroller_impl import degrees
 
 if TYPE_CHECKING:
     from ..server import Server
@@ -45,7 +46,7 @@ def _sila_errors() -> Iterator[None]:
 def _info(m: RecordingMeta) -> dict[str, Any]:
     return {
         "RecordingId": m.recording_id,
-        "StartedAt": m.started_at_dt,
+        "StartedAt": m.started_at_dt.astimezone(),  # stored in UTC; reported in the server's local time zone
         "Duration": m.duration,
         "Stream": m.stream,
         "IncludeAudio": m.include_audio,
@@ -60,14 +61,22 @@ class VideoCaptureControllerImpl(VideoCaptureControllerBase):
         super().__init__(parent_server=parent_server)
         self.camera = parent_server.camera
         self.store = parent_server.recordings
+        self.pan_half = parent_server.pan_range_deg / 2  # degrees at normalized +1, as in PanTiltController
+        self.tilt_half = parent_server.tilt_range_deg / 2
         # keep finished executions queryable for a while (results are small; video is fetched separately)
         self.RecordVideo_default_lifetime_of_execution = timedelta(hours=1)
 
     def TakeSnapshot(self, Stream: StreamName, *, metadata: MetadataDict) -> TakeSnapshot_Responses:
         with _sila_errors():
-            data, w, h, ts = self.camera.snapshot(Stream)
-        logger.info("TakeSnapshot(%s): %dx%d, %d bytes", Stream, w, h, len(data))
-        return TakeSnapshot_Responses(data, w, h, ts)
+            data, w, h, ts, pos = self.camera.snapshot(Stream)
+        if pos is None:
+            position = {"PositionAvailable": False, "Pan": 0.0, "Tilt": 0.0}
+        else:
+            position = {"PositionAvailable": True, **degrees(pos, self.pan_half, self.tilt_half)}
+        logger.info("TakeSnapshot(%s): %dx%d, %d bytes, at %s", Stream, w, h, len(data), position)
+        return TakeSnapshot_Responses(
+            Image=data, Width=w, Height=h, CapturedAt=ts.astimezone(), Position=position
+        )
 
     def RecordVideo(
         self,

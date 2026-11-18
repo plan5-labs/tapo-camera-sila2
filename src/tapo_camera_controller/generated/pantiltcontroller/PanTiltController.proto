@@ -4,11 +4,12 @@ import "SiLAFramework.proto";
 
 package sila2.org.riken.instruments.pantiltcontroller.v2;
 
-/* Pan/tilt movement and position presets of the camera (via ONVIF PTZ). Coordinate system (angles in degrees): Origin (Pan 0, Tilt 0): the direction the camera faces after power-up, i.e. the side of the camera body with the logo. MoveHome returns to it. Pan : positive = turn to the LEFT as seen from behind the camera (counter-clockwise viewed from above, for a camera standing on a table). Negative = turn to the right. Example: to turn 90 degrees to the left, use MoveRelative with DeltaPan = +90. Tilt: positive = UP, negative = DOWN. Movement range: see the MovementRange property. On a Tapo C232 it is Pan -170 to +170 (340 degrees mechanical range) and Tilt -34.5 to +34.5 (69 degrees). A target outside the movement range is not an error: the camera stops at the limit. Check the returned position. Accuracy: the camera works in a unitless -1 to +1 space; this server converts linearly using the mechanical range of the model (server options --pan-range-deg / --tilt-range-deg, Tapo C232 values by default). On a Tapo C232 this was only roughly confirmed by eye (Pan -85 to +85 looked like about 170 to 180 degrees). Treat angles as approximate, to within several degrees. Positions are reported rounded to 0.1 degree. The product page also states "360 degrees pan / 110 degrees tilt"; those are the visible coverage including the lens field of view, not the movement range. For a ceiling-mounted camera the directions may be inverted (not verified). Movement behavior (Tapo C232): The camera moves pan first, then tilt. Pan speed is about 32 degrees per second; a full pan sweep (340 degrees) takes about 11 seconds, plus up to about 5 seconds of tilt. Movement commands finish only when the camera has stopped, and return the final position. Only one movement can run at a time; a movement command issued while another is running is rejected with MovementInProgress. Snapshots and recordings may run during movements. Presets: at most 8 presets can be stored in the camera (Tapo C232). Presets are identified by a token assigned by the camera and have a name chosen by the user. Preset names are unique on this server: saving with an existing name updates that preset. */
+/* Pan/tilt movement and position presets of the camera (via ONVIF PTZ). Coordinate system (angles in degrees): Origin (Pan 0, Tilt 0): the direction the camera faces after power-up, i.e. the side of the camera body with the logo. MoveHome returns to it. Pan : positive = turn to the LEFT as seen from behind the camera (counter-clockwise viewed from above, for a camera standing on a table). Negative = turn to the right. In the camera image, positive pan turns the view to the left: objects in the image move to the right. A person facing the camera sees it turn to their right. Example: to turn 90 degrees to the left, use MoveRelative with DeltaPan = +90. Tilt: positive = UP, negative = DOWN. In the image, positive tilt moves objects down. Movement range: see the MovementRange property. On a Tapo C232 it is Pan -170 to +170 (340 degrees mechanical range) and Tilt -34.5 to +34.5 (69 degrees). A target outside the movement range is not an error: the camera stops at the limit. Check the returned position. Accuracy: the camera works in a unitless -1 to +1 space; this server converts linearly using the mechanical range of the model (server options --pan-range-deg / --tilt-range-deg, Tapo C232 values by default). On a Tapo C232 this was only roughly confirmed by eye (Pan -85 to +85 looked like about 170 to 180 degrees). Treat angles as approximate, to within several degrees. Positions are reported rounded to 0.1 degree. The product page also states "360 degrees pan / 110 degrees tilt"; those are the visible coverage including the lens field of view, not the movement range. For a ceiling-mounted camera the directions may be inverted (not verified). Movement behavior (Tapo C232): The camera moves pan first, then tilt. Pan speed is about 32 degrees per second; a full pan sweep (340 degrees) takes about 11 seconds, plus up to about 5 seconds of tilt. Movement commands finish only when the camera has stopped, and return the final position (Position) and the position before the movement (StartPosition). To go back to where the camera was before a movement, use MoveAbsolute with that StartPosition; MoveHome instead goes to the power-up front (Pan 0, Tilt 0). Only one movement can run at a time; a movement command issued while another is running is rejected with MovementInProgress. Snapshots and recordings may run during movements. Presets: at most 8 presets can be stored in the camera (Tapo C232). Presets are identified by a token assigned by the camera and have a name chosen by the user. Preset names are unique on this server: saving with an existing name updates that preset. */
 service PanTiltController {
   /* 
-      Move to an absolute pan/tilt position (degrees from the power-up front) and wait until the
-      camera has stopped. A target outside MovementRange stops at the limit.
+      Move to an absolute pan/tilt position in degrees from the power-up front (positive = left / up)
+      and wait until the camera has stopped. A target outside MovementRange stops at the limit.
+      To keep one axis where it is, pass its value from CurrentPosition.
      */
   rpc MoveAbsolute (sila2.org.riken.instruments.pantiltcontroller.v2.MoveAbsolute_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
   /* Monitor the state of MoveAbsolute */
@@ -16,7 +17,8 @@ service PanTiltController {
   /* Retrieve result of MoveAbsolute */
   rpc MoveAbsolute_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.org.riken.instruments.pantiltcontroller.v2.MoveAbsolute_Responses) {}
   /* 
-      Turn by the given angles from the current position and wait until the camera has stopped.
+      Turn by the given angles in degrees from the current position (positive = left / up) and wait
+      until the camera has stopped. Pass 0 for an axis that should not move.
       A target outside MovementRange stops at the limit (no error); check the returned position.
      */
   rpc MoveRelative (sila2.org.riken.instruments.pantiltcontroller.v2.MoveRelative_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
@@ -42,11 +44,12 @@ service PanTiltController {
   rpc SavePreset (sila2.org.riken.instruments.pantiltcontroller.v2.SavePreset_Parameters) returns (sila2.org.riken.instruments.pantiltcontroller.v2.SavePreset_Responses) {}
   /* Delete a stored preset. */
   rpc RemovePreset (sila2.org.riken.instruments.pantiltcontroller.v2.RemovePreset_Parameters) returns (sila2.org.riken.instruments.pantiltcontroller.v2.RemovePreset_Responses) {}
-  /* Current pan/tilt position in degrees as reported by the camera (may change while moving). */
+  /* Current pan/tilt position in degrees from the power-up front (positive = left / up), as reported by the camera; it changes while moving. */
   rpc Get_CurrentPosition (sila2.org.riken.instruments.pantiltcontroller.v2.Get_CurrentPosition_Parameters) returns (sila2.org.riken.instruments.pantiltcontroller.v2.Get_CurrentPosition_Responses) {}
   /* 
-      The pan and tilt limits in degrees. They come from the server configuration
-      (--pan-range-deg / --tilt-range-deg; Tapo C232 values by default), not from the camera.
+      The pan and tilt limits in degrees (Tapo C232: pan -170 to +170, tilt -34.5 to +34.5).
+      They come from the server configuration (--pan-range-deg / --tilt-range-deg; Tapo C232 values
+      by default), not from the camera.
      */
   rpc Get_MovementRange (sila2.org.riken.instruments.pantiltcontroller.v2.Get_MovementRange_Parameters) returns (sila2.org.riken.instruments.pantiltcontroller.v2.Get_MovementRange_Responses) {}
 }
@@ -80,15 +83,15 @@ message DataType_PanTiltPosition {
   sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition.PanTiltPosition_Struct PanTiltPosition = 1;  /* A pan/tilt position in degrees from the power-up front (see the feature description). */
 }
 
-/* Pan and tilt limits in degrees. */
-message DataType_MovementRange {
-  message MovementRange_Struct {
+/* Pan and tilt limits in degrees (the type of the MovementRange property). */
+message DataType_PanTiltLimits {
+  message PanTiltLimits_Struct {
     sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanAngle PanMin = 1;  /* Rightmost pan (negative). */
     sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanAngle PanMax = 2;  /* Leftmost pan (positive). */
     sila2.org.riken.instruments.pantiltcontroller.v2.DataType_TiltAngle TiltMin = 3;  /* Lowest tilt (negative). */
     sila2.org.riken.instruments.pantiltcontroller.v2.DataType_TiltAngle TiltMax = 4;  /* Highest tilt (positive). */
   }
-  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_MovementRange.MovementRange_Struct MovementRange = 1;  /* Pan and tilt limits in degrees. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltLimits.PanTiltLimits_Struct PanTiltLimits = 1;  /* Pan and tilt limits in degrees (the type of the MovementRange property). */
 }
 
 /* A stored pan/tilt preset. */
@@ -109,17 +112,19 @@ message MoveAbsolute_Parameters {
 /* Responses of MoveAbsolute */
 message MoveAbsolute_Responses {
   sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition Position = 1;  /* Position after the movement. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition StartPosition = 2;  /* Position before the movement (pass it to MoveAbsolute to go back). */
 }
 
 /* Parameters for MoveRelative */
 message MoveRelative_Parameters {
-  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanOffset DeltaPan = 1;  /* Pan change in degrees. Positive = left, negative = right. */
-  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_TiltOffset DeltaTilt = 2;  /* Tilt change in degrees. Positive = up, negative = down. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanOffset DeltaPan = 1;  /* Pan change in degrees. Positive = left, negative = right; 0 = keep the pan. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_TiltOffset DeltaTilt = 2;  /* Tilt change in degrees. Positive = up, negative = down; 0 = keep the tilt. */
 }
 
 /* Responses of MoveRelative */
 message MoveRelative_Responses {
   sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition Position = 1;  /* Position after the movement. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition StartPosition = 2;  /* Position before the movement (pass it to MoveAbsolute to go back). */
 }
 
 /* Parameters for MoveHome */
@@ -129,6 +134,7 @@ message MoveHome_Parameters {
 /* Responses of MoveHome */
 message MoveHome_Responses {
   sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition Position = 1;  /* Position after the movement. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition StartPosition = 2;  /* Position before the movement (pass it to MoveAbsolute to go back). */
 }
 
 /* Parameters for GetPresets */
@@ -148,6 +154,7 @@ message GotoPreset_Parameters {
 /* Responses of GotoPreset */
 message GotoPreset_Responses {
   sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition Position = 1;  /* Position after the movement. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition StartPosition = 2;  /* Position before the movement (pass it to MoveAbsolute to go back). */
 }
 
 /* Parameters for SavePreset */
@@ -175,7 +182,7 @@ message Get_CurrentPosition_Parameters {
 
 /* Responses of CurrentPosition */
 message Get_CurrentPosition_Responses {
-  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition CurrentPosition = 1;  /* Current pan/tilt position in degrees as reported by the camera (may change while moving). */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltPosition CurrentPosition = 1;  /* Current pan/tilt position in degrees from the power-up front (positive = left / up), as reported by the camera; it changes while moving. */
 }
 
 /* Parameters for MovementRange */
@@ -184,5 +191,5 @@ message Get_MovementRange_Parameters {
 
 /* Responses of MovementRange */
 message Get_MovementRange_Responses {
-  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_MovementRange MovementRange = 1;  /* The pan and tilt limits in degrees. They come from the server configuration (--pan-range-deg / --tilt-range-deg; Tapo C232 values by default), not from the camera. */
+  sila2.org.riken.instruments.pantiltcontroller.v2.DataType_PanTiltLimits MovementRange = 1;  /* The pan and tilt limits in degrees (Tapo C232: pan -170 to +170, tilt -34.5 to +34.5). They come from the server configuration (--pan-range-deg / --tilt-range-deg; Tapo C232 values by default), not from the camera. */
 }

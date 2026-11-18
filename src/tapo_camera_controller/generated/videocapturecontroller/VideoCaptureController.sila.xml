@@ -1,4 +1,4 @@
-<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="instruments" FeatureVersion="1.0" MaturityLevel="Draft" Originator="org.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="instruments" FeatureVersion="1.1" MaturityLevel="Draft" Originator="org.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
   <Identifier>VideoCaptureController</Identifier>
   <DisplayName>Video Capture Controller</DisplayName>
   <Description>Still snapshots and fixed-duration video recordings from the camera's RTSP streams.
@@ -14,11 +14,15 @@
     Recordings are kept on the server and identified by a RecordingId (a random UUID version 4).
     A recording is downloaded with GetRecording; file system paths are never exposed.
     The server may delete old recordings automatically according to its retention settings
-    (maximum age and maximum total size, configured when the server is started).</Description>
+    (maximum age and maximum total size, configured when the server is started).
+
+    Times (CapturedAt, StartedAt) are given in the server's local time zone, with its UTC offset
+    (e.g. 2026-11-18T17:16:41.562+09:00).</Description>
   <Command>
     <Identifier>TakeSnapshot</Identifier>
     <DisplayName>Take Snapshot</DisplayName>
-    <Description>Capture one still image (JPEG) from the selected stream. Takes about 2 seconds.
+    <Description>Capture one still image (JPEG) from the selected stream, with the capture time and the pan/tilt
+      position at capture. Takes about 2 seconds.
       Can be executed while the camera is moving or recording.</Description>
     <Observable>No</Observable>
     <Parameter>
@@ -66,12 +70,22 @@
     <Response>
       <Identifier>CapturedAt</Identifier>
       <DisplayName>Captured At</DisplayName>
-      <Description>Time (server clock, UTC) at which the server had received and decoded the frame, before the
-        JPEG encoding. Use it as the capture time. The time the camera overlays on the image comes from
-        the camera's own clock and is typically a few seconds earlier (camera clock offset and stream
-        latency); do not compare the two to the second.</Description>
+      <Description>Time (server clock, local time zone with UTC offset) at which the server had received and
+        decoded the frame, before the JPEG encoding. Use it as the capture time. The time the camera
+        overlays on the image comes from the camera's own clock and is typically a few seconds earlier
+        (camera clock offset and stream latency); do not compare the two to the second.</Description>
       <DataType>
         <Basic>Timestamp</Basic>
+      </DataType>
+    </Response>
+    <Response>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>Pan/tilt position in degrees (as in PanTiltController) read from the camera right after the
+        frame was received. During a movement it is approximate. PositionAvailable is false (and Pan,
+        Tilt are 0) for a camera without pan/tilt or if the position could not be read.</Description>
+      <DataType>
+        <DataTypeIdentifier>CapturePosition</DataTypeIdentifier>
       </DataType>
     </Response>
     <DefinedExecutionErrors>
@@ -278,7 +292,7 @@
         <Element>
           <Identifier>StartedAt</Identifier>
           <DisplayName>Started At</DisplayName>
-          <Description>Time of the first recorded frame.</Description>
+          <Description>Time of the first recorded frame (server's local time zone with UTC offset).</Description>
           <DataType>
             <Basic>Timestamp</Basic>
           </DataType>
@@ -329,6 +343,39 @@
           <Description>Size of the MP4 file in bytes.</Description>
           <DataType>
             <Basic>Integer</Basic>
+          </DataType>
+        </Element>
+      </Structure>
+    </DataType>
+  </DataTypeDefinition>
+  <DataTypeDefinition>
+    <Identifier>CapturePosition</Identifier>
+    <DisplayName>Capture Position</DisplayName>
+    <Description>Pan/tilt position of the camera when an image was captured.</Description>
+    <DataType>
+      <Structure>
+        <Element>
+          <Identifier>PositionAvailable</Identifier>
+          <DisplayName>Position Available</DisplayName>
+          <Description>False for a camera without pan/tilt or if the position could not be read; Pan and Tilt are then 0.</Description>
+          <DataType>
+            <Basic>Boolean</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Pan</Identifier>
+          <DisplayName>Pan</DisplayName>
+          <Description>Pan in degrees from the power-up front; positive = left.</Description>
+          <DataType>
+            <Basic>Real</Basic>
+          </DataType>
+        </Element>
+        <Element>
+          <Identifier>Tilt</Identifier>
+          <DisplayName>Tilt</DisplayName>
+          <Description>Tilt in degrees from the power-up tilt; positive = up.</Description>
+          <DataType>
+            <Basic>Real</Basic>
           </DataType>
         </Element>
       </Structure>

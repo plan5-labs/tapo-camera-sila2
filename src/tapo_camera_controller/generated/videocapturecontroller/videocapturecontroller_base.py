@@ -45,6 +45,9 @@ class VideoCaptureControllerBase(FeatureImplementationBase, ABC):
         The server may delete old recordings automatically according to its retention settings
         (maximum age and maximum total size, configured when the server is started).
 
+        Times (CapturedAt, StartedAt) are given in the server's local time zone, with its UTC offset
+        (e.g. 2026-11-18T17:16:41.562+09:00).
+
         """
         super().__init__(parent_server=parent_server)
 
@@ -54,7 +57,8 @@ class VideoCaptureControllerBase(FeatureImplementationBase, ABC):
     def TakeSnapshot(self, Stream: StreamName, *, metadata: MetadataDict) -> TakeSnapshot_Responses:
         """
 
-        Capture one still image (JPEG) from the selected stream. Takes about 2 seconds.
+        Capture one still image (JPEG) from the selected stream, with the capture time and the pan/tilt
+        position at capture. Takes about 2 seconds.
         Can be executed while the camera is moving or recording.
 
 
@@ -72,10 +76,16 @@ class VideoCaptureControllerBase(FeatureImplementationBase, ABC):
               - Height: Image height in pixels.
 
               - CapturedAt:
-          Time (server clock, UTC) at which the server had received and decoded the frame, before the
-          JPEG encoding. Use it as the capture time. The time the camera overlays on the image comes from
-          the camera's own clock and is typically a few seconds earlier (camera clock offset and stream
-          latency); do not compare the two to the second.
+          Time (server clock, local time zone with UTC offset) at which the server had received and
+          decoded the frame, before the JPEG encoding. Use it as the capture time. The time the camera
+          overlays on the image comes from the camera's own clock and is typically a few seconds earlier
+          (camera clock offset and stream latency); do not compare the two to the second.
+
+
+              - Position:
+          Pan/tilt position in degrees (as in PanTiltController) read from the camera right after the
+          frame was received. During a movement it is approximate. PositionAvailable is false (and Pan,
+          Tilt are 0) for a camera without pan/tilt or if the position could not be read.
 
 
 
